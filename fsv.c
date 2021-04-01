@@ -12,6 +12,7 @@
 #define VERSION "0.0.0"
 
 char *progname;
+pid_t svcpid;
 
 /* long options */
 static struct option longopts[] = {
@@ -32,10 +33,34 @@ version()
 	fprintf(stderr, "fsv v%s\n", VERSION);
 }
 
+void
+sighandler(int sig)
+{
+	int status;
+	wait(&status);
+
+	switch (sig) {
+	case SIGCHLD:
+		if (WIFEXITED(status))
+			printf("child exited %d\n", WEXITSTATUS(status));
+		else if (WIFSIGNALED(status)) {
+			int sig = WTERMSIG(status);
+			printf("child terminated by signal: %s (%d)\n",
+			    strsignal(sig), sig);
+		}
+		break;
+	default:
+		printf("caught signal %s (%d)\n", strsignal(sig), sig);
+	}
+}
+
 int
 main(int argc, char *argv[])
 {
 	progname = argv[0];
+
+	signal(SIGCHLD, sighandler);
+	signal(SIGINT,  sighandler);
 
 	/*
 	 * Process arguments
@@ -71,26 +96,14 @@ main(int argc, char *argv[])
 		exit(EX_USAGE);
 	}
 
-	pid_t pid;
-	int status;
-
-	pid = fork();
-	if (pid == -1) {
+	svcpid = fork();
+	if (svcpid == -1) {
 		err(EX_OSERR, "cannot fork");
-	} else if (pid == 0) {
+	} else if (svcpid == 0) {
 		if (execvp(argv[0], argv) == -1)
 			err(EX_UNAVAILABLE, "exec `%s' failed", argv[0]);
 	}
 
-	wait(&status);
-
-	if (WIFEXITED(status))
-		printf("child exited %d\n", WEXITSTATUS(status));
-	else if (WIFSIGNALED(status)) {
-		int sig = WTERMSIG(status);
-		printf("child terminated by signal: %s (%d)\n",
-		    strsignal(sig), sig);
-	}
-
-	exit(0);
+	for (;;)
+		pause();
 }
