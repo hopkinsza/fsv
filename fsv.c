@@ -9,13 +9,13 @@
 #include <sysexits.h>
 #include <unistd.h>
 
-#define VERSION "0.0.0"
+static const char *progversion = "0.0.0";
+static char *progname;
 
-char *progname;
-pid_t svcpid;
+static pid_t svcpid;
 
-volatile sig_atomic_t gotchld = 0;
-volatile sig_atomic_t gotsig  = 0;
+static volatile sig_atomic_t gotchld = 0;
+static volatile sig_atomic_t gotsig  = 0;
 
 /* long options */
 static struct option longopts[] = {
@@ -33,7 +33,7 @@ usage()
 void
 version()
 {
-	fprintf(stderr, "fsv v%s\n", VERSION);
+	fprintf(stderr, "fsv v%s\n", progversion);
 }
 
 void
@@ -58,7 +58,6 @@ main(int argc, char *argv[])
 	 */
 
 	sigset_t bmask, obmask;
-	struct sigaction chld_sa, term_sa;
 
 	sigemptyset(&bmask);
 	sigaddset(&bmask, SIGCHLD);
@@ -71,6 +70,8 @@ main(int argc, char *argv[])
 	/*
 	 * Set handlers.
 	 */
+
+	struct sigaction chld_sa, term_sa;
 
 	chld_sa.sa_handler = onchld;
 	chld_sa.sa_mask    = bmask;
