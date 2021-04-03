@@ -1,3 +1,4 @@
+#include <sys/time.h>
 #include <sys/wait.h>
 
 #include <err.h>
@@ -12,17 +13,17 @@
 static const char *progversion = "0.0.0";
 static char *progname;
 
-static pid_t svcpid;
+struct proc {
+	pid_t pid;
+	int status;
+	struct timeval tv;
+};
+
+static struct proc cmd = { 0, 0, { 0, 0 } };
+static struct proc log = { 0, 0, { 0, 0 } };
 
 static volatile sig_atomic_t gotchld = 0;
-static volatile sig_atomic_t gotsig  = 0;
-
-/* long options */
-static struct option longopts[] = {
-	{ "help",	no_argument,		0,		'h' },
-	{ "version",	no_argument,		0,		'V' },
-	{ NULL,		0,			NULL,		0 }
-};
+static volatile sig_atomic_t termsig = 0;
 
 void
 usage()
@@ -45,7 +46,7 @@ onchld(int sig)
 void
 onterm(int sig)
 {
-	gotsig = sig;
+	termsig = sig;
 }
 
 int
@@ -64,6 +65,7 @@ main(int argc, char *argv[])
 	sigaddset(&bmask, SIGINT);
 	sigaddset(&bmask, SIGHUP);
 	sigaddset(&bmask, SIGTERM);
+	sigaddset(&bmask, SIGQUIT);
 
 	sigprocmask(SIG_BLOCK, &bmask, &obmask);
 
@@ -85,10 +87,17 @@ main(int argc, char *argv[])
 	sigaction(SIGINT,  &term_sa, NULL);
 	sigaction(SIGHUP,  &term_sa, NULL);
 	sigaction(SIGTERM, &term_sa, NULL);
+	sigaction(SIGQUIT, &term_sa, NULL);
 
 	/*
 	 * Process arguments.
 	 */
+
+	struct option longopts[] = {
+		{ "help",	no_argument,		0,		'h' },
+		{ "version",	no_argument,		0,		'V' },
+		{ NULL,		0,			NULL,		0 }
+	};
 
 	int ch;
 	while ((ch = getopt_long(argc, argv, "+hV", longopts, NULL)) != -1) {
@@ -120,26 +129,42 @@ main(int argc, char *argv[])
 		exit(EX_USAGE);
 	}
 
-	svcpid = fork();
-	if (svcpid == -1) {
+	gettimeofday(&cmd.tv, NULL);
+	switch(cmd.pid = fork()) {
+	case -1:
 		err(EX_OSERR, "cannot fork");
-	} else if (svcpid == 0) {
+		break;
+	case 0:
+		/* Child: reset signal handling and exec */
 		sigprocmask(SIG_SETMASK, &obmask, NULL);
 		if (execvp(argv[0], argv) == -1)
 			err(EX_UNAVAILABLE, "exec `%s' failed", argv[0]);
+		break;
 	}
+
+	printf("child started at %d\n", cmd.tv.tv_sec);
 
 	for (;;) {
 		sigsuspend(&obmask);
 		if (gotchld) {
 			int status;
+			/* waitpid(2) flags */
+			int wpf = WNOHANG|WCONTINUED|WUNTRACED;
+			pid_t wpid;
 			/* signal that the child received, if applicable */
 			int csig;
-			int e;
 
 			gotchld = 0;
 
-			while (waitpid(WAIT_ANY, &status, WNOHANG|WCONTINUED|WUNTRACED) != -1) {
+			while ((wpid = waitpid(WAIT_ANY, &status, wpf)) != -1) {
+				if (wpid == cmd.pid) {
+					printf("cmd update:\n");
+				} else if (wpid == log.pid) {
+					printf("log update:\n");
+				} else {
+					printf("??? unknown child!\n");
+				}
+
 				if (WIFEXITED(status)) {
 					printf("child exited %d\n", WEXITSTATUS(status));
 				} else if (WIFSIGNALED(status)) {
@@ -156,10 +181,21 @@ main(int argc, char *argv[])
 				} else if (WIFCONTINUED(status)) {
 					printf("child continued\n");
 				}
+				printf("\n");
 			}
-		} else if (gotsig) {
-			printf("caught signal %s (%d)\n", strsignal(gotsig), gotsig);
-			gotsig = 0;
+		} else if (termsig) {
+			printf("caught signal %s (%d)\n",
+			    strsignal(termsig), termsig);
+			/*
+			 * Restore default handler, unblock signals, and raise
+			 * it again.
+			 */
+			term_sa.sa_handler = SIG_DFL;
+			sigaction(termsig, &term_sa, NULL);
+			sigprocmask(SIG_UNBLOCK, &bmask, NULL);
+			raise(termsig);
+			/* NOTREACHED */
+			termsig = 0;
 		}
 	}
 }
