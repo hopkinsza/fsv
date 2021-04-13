@@ -304,6 +304,7 @@ main(int argc, char *argv[])
 					// TODO: update `struct proc'
 				} else if (wpid == log.pid) {
 					printf("log update:\n");
+					log.status = status;
 				} else {
 					printf("??? unknown child!\n");
 				}
