@@ -86,7 +86,7 @@ onterm(int sig)
  * Returns fd to the new cmddir.
  */
 int
-mkcmddir(char *cmddir, char *prefix)
+mkcmddir(const char *cmddir, const char *prefix)
 {
 	int fd_prefix;
 	int fd_fsvdir;
@@ -143,6 +143,8 @@ mkcmddir(char *cmddir, char *prefix)
 int
 main(int argc, char *argv[])
 {
+	char *cmdname = NULL;
+
 	progname = argv[0];
 
 	/*
@@ -185,17 +187,21 @@ main(int argc, char *argv[])
 	 */
 
 	struct option longopts[] = {
-		{ "help",	no_argument,		0,		'h' },
-		{ "version",	no_argument,		0,		'V' },
+		{ "help",	no_argument,		NULL,		'h' },
+		{ "name",	required_argument,	NULL,		'h' },
+		{ "version",	no_argument,		NULL,		'V' },
 		{ NULL,		0,			NULL,		0 }
 	};
 
 	int ch;
-	while ((ch = getopt_long(argc, argv, "+hV", longopts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "+hn:V", longopts, NULL)) != -1) {
 		switch(ch) {
 		case 'h':
 			usage();
 			exit(0);
+			break;
+		case 'n':
+			cmdname = optarg;
 			break;
 		case 'V':
 			version();
@@ -210,10 +216,8 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	/* TODO call mkdir func */
-
 	/*
-	 * Exec given cmd.
+	 * Verify that a cmdname was given, make cmddir.
 	 */
 
 	if (argc == 0) {
@@ -221,6 +225,17 @@ main(int argc, char *argv[])
 		usage();
 		exit(EX_USAGE);
 	}
+
+	const char *prefix = "/var/tmp";
+	if (cmdname == NULL)
+		cmdname = argv[0];
+	int fd_cmddir;
+
+	fd_cmddir = mkcmddir((const char*)cmdname, prefix);
+
+	/*
+	 * Run cmd.
+	 */
 
 	gettimeofday(&cmd.tv, NULL);
 	switch(cmd.pid = fork()) {
