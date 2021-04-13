@@ -48,9 +48,6 @@ struct proc {
 	struct timeval tv;
 };
 
-static struct proc cmd = { 0, 0, { 0, 0 } };
-static struct proc log = { 0, 0, { 0, 0 } };
-
 static volatile sig_atomic_t gotchld = 0;
 static volatile sig_atomic_t termsig = 0;
 
@@ -140,12 +137,46 @@ mkcmddir(const char *cmddir, const char *prefix)
 	return fd_cmddir;
 }
 
+/*
+ * Print out some updates given the status updated from wait(2).
+ */
+void
+print_wstatus(int status)
+{
+	/* Signal that the child received, if applicable. */
+	int csig;
+
+	if (WIFEXITED(status)) {
+		printf("exited %d\n", WEXITSTATUS(status));
+	} else if (WIFSIGNALED(status)) {
+		csig = WTERMSIG(status);
+		printf("terminated by signal: %s (%d)",
+		    strsignal(csig), csig);
+		if (WCOREDUMP(status))
+			printf(", dumped core");
+		printf("\n");
+	} else if (WIFSTOPPED(status)) {
+		csig = WSTOPSIG(status);
+		printf("stopped by signal: %s (%d)\n",
+		    strsignal(csig), csig);
+	} else if (WIFCONTINUED(status)) {
+		printf("continued\n");
+	}
+}
+
 int
 main(int argc, char *argv[])
 {
 	char *cmdname = NULL;
+	int logpipe[2];
+
+	struct proc cmd = { 0, 0, { 0, 0 } };
+	struct proc log = { 0, 0, { 0, 0 } };
 
 	progname = argv[0];
+
+	if (pipe(logpipe) == -1)
+		err(EX_OSERR, "cannot make pipe");
 
 	/*
 	 * Block signals until ready to catch them.
@@ -188,7 +219,7 @@ main(int argc, char *argv[])
 
 	struct option longopts[] = {
 		{ "help",	no_argument,		NULL,		'h' },
-		{ "name",	required_argument,	NULL,		'h' },
+		{ "name",	required_argument,	NULL,		'n' },
 		{ "version",	no_argument,		NULL,		'V' },
 		{ NULL,		0,			NULL,		0 }
 	};
@@ -263,14 +294,13 @@ main(int argc, char *argv[])
 			/* waitpid(2) flags */
 			int wpf = WNOHANG|WCONTINUED|WUNTRACED;
 			pid_t wpid;
-			/* signal that the child received, if applicable */
-			int csig;
 
 			gotchld = 0;
 
-			while ((wpid = waitpid(WAIT_ANY, &status, wpf)) != -1) {
+			while ((wpid = waitpid(WAIT_ANY, &status, wpf)) > 0) {
 				if (wpid == cmd.pid) {
 					printf("cmd update:\n");
+					cmd.status = status;
 					// TODO: update `struct proc'
 				} else if (wpid == log.pid) {
 					printf("log update:\n");
@@ -278,22 +308,7 @@ main(int argc, char *argv[])
 					printf("??? unknown child!\n");
 				}
 
-				if (WIFEXITED(status)) {
-					printf("child exited %d\n", WEXITSTATUS(status));
-				} else if (WIFSIGNALED(status)) {
-					csig = WTERMSIG(status);
-					printf("child terminated by signal: %s (%d)",
-					    strsignal(csig), csig);
-					if (WCOREDUMP(status))
-						printf(", dumped core");
-					printf("\n");
-				} else if (WIFSTOPPED(status)) {
-					csig = WSTOPSIG(status);
-					printf("child stopped by signal: %s (%d)\n",
-					    strsignal(csig), csig);
-				} else if (WIFCONTINUED(status)) {
-					printf("child continued\n");
-				}
+				print_wstatus(status);
 				printf("\n");
 			}
 		} else if (termsig) {
