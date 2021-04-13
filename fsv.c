@@ -252,6 +252,10 @@ main(int argc, char *argv[])
 
 	printf("child started at %d\n", cmd.tv.tv_sec);
 
+	/*
+	 * Main loop. Wait for signals, update cmd and log structs when received.
+	 */
+
 	for (;;) {
 		sigsuspend(&obmask);
 		if (gotchld) {
@@ -267,6 +271,7 @@ main(int argc, char *argv[])
 			while ((wpid = waitpid(WAIT_ANY, &status, wpf)) != -1) {
 				if (wpid == cmd.pid) {
 					printf("cmd update:\n");
+					// TODO: update `struct proc'
 				} else if (wpid == log.pid) {
 					printf("log update:\n");
 				} else {
