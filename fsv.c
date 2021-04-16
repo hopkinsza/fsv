@@ -51,118 +51,10 @@ struct proc {
 static volatile sig_atomic_t gotchld = 0;
 static volatile sig_atomic_t termsig = 0;
 
-void
-usage()
-{
-	fprintf(stderr, "usage: %s blah blah\n", progname);
-}
-
-void
-version()
-{
-	fprintf(stderr, "fsv v%s\n", progversion);
-}
-
-void
-onchld(int sig)
-{
-	gotchld = 1;
-}
-
-void
-onterm(int sig)
-{
-	termsig = sig;
-}
-
-/*
- * This function essentially does the following:
- * mkdir ${prefix}/fsv-${uid}
- * mkdir ${prefix}/fsv-${uid}/${cmddir}
- *
- * Returns fd to the new cmddir.
- */
-int
-mkcmddir(const char *cmddir, const char *prefix)
-{
-	int fd_prefix;
-	int fd_fsvdir;
-	int fd_cmddir;
-	char fsvdir[32];
-
-	/* build name of fsvdir */
-	int l;
-	l = snprintf(fsvdir, sizeof(fsvdir), "fsv-%ld", (long)geteuid());
-	if (l < 0) {
-		err(EX_OSERR, "snprintf");
-	} else if (l >= sizeof(fsvdir)) {
-		/* should never happen */
-		errx(EX_SOFTWARE, "snprintf: fsvdir too long");
-	}
-
-	/* open $prefix */
-	if ((fd_prefix = open(prefix, O_RDONLY|O_DIRECTORY)) == -1)
-		err(EX_OSFILE, "can't open `%s'", prefix);
-
-	/* mkdir $prefix/fsv-$uid */
-	if (mkdirat(fd_prefix, fsvdir, 00777) == -1) {
-		switch (errno) {
-		case EEXIST:
-			/* already exists, ok */
-			break;
-		default:
-			err(EX_IOERR, "can't mkdir `%s/%s'", prefix, fsvdir);
-		}
-	}
-	if ((fd_fsvdir = openat(fd_prefix, fsvdir, O_RDONLY|O_DIRECTORY)) == -1)
-		err(EX_IOERR, "can't open `%s/%s' as directory", prefix, fsvdir);
-
-	close(fd_prefix);
-
-	/* mkdir $prefix/fsv-$uid/$cmddir */
-	if ((mkdirat(fd_fsvdir, cmddir, 00777)) == -1) {
-		switch (errno) {
-		case EEXIST:
-			/* already exists, ok */
-			break;
-		default:
-			err(EX_IOERR, "can't mkdir `%s/%s/%s'", prefix, fsvdir, cmddir);
-		}
-	}
-	if ((fd_cmddir = openat(fd_fsvdir, cmddir, O_RDONLY|O_DIRECTORY)) == -1)
-		err(EX_IOERR, "can't open `%s/%s/%s' as directory", prefix, fsvdir, prefix);
-
-	close(fd_fsvdir);
-
-	return fd_cmddir;
-}
-
-/*
- * Print out some updates given the status updated from wait(2).
- */
-void
-print_wstatus(int status)
-{
-	/* Signal that the child received, if applicable. */
-	int csig;
-
-	if (WIFEXITED(status)) {
-		printf("exited %d\n", WEXITSTATUS(status));
-	} else if (WIFSIGNALED(status)) {
-		csig = WTERMSIG(status);
-		printf("terminated by signal: %s (%d)",
-		    strsignal(csig), csig);
-		if (WCOREDUMP(status))
-			printf(", dumped core");
-		printf("\n");
-	} else if (WIFSTOPPED(status)) {
-		csig = WSTOPSIG(status);
-		printf("stopped by signal: %s (%d)\n",
-		    strsignal(csig), csig);
-	} else if (WIFCONTINUED(status)) {
-		printf("continued\n");
-	}
-}
+void usage(), version();
+void onchld(int), onterm(int);
+void print_wstatus(int);
+int mkcmddir(const char *, const char *);
 
 int
 main(int argc, char *argv[])
@@ -327,4 +219,117 @@ main(int argc, char *argv[])
 			termsig = 0;
 		}
 	}
+}
+
+void
+usage()
+{
+	fprintf(stderr, "usage: %s blah blah\n", progname);
+}
+
+void
+version()
+{
+	fprintf(stderr, "fsv v%s\n", progversion);
+}
+
+void
+onchld(int sig)
+{
+	gotchld = 1;
+}
+
+void
+onterm(int sig)
+{
+	termsig = sig;
+}
+
+/*
+ * Print out some updates given the status updated from wait(2).
+ */
+void
+print_wstatus(int status)
+{
+	/* Signal that the child received, if applicable. */
+	int csig;
+
+	if (WIFEXITED(status)) {
+		printf("exited %d\n", WEXITSTATUS(status));
+	} else if (WIFSIGNALED(status)) {
+		csig = WTERMSIG(status);
+		printf("terminated by signal: %s (%d)",
+		    strsignal(csig), csig);
+		if (WCOREDUMP(status))
+			printf(", dumped core");
+		printf("\n");
+	} else if (WIFSTOPPED(status)) {
+		csig = WSTOPSIG(status);
+		printf("stopped by signal: %s (%d)\n",
+		    strsignal(csig), csig);
+	} else if (WIFCONTINUED(status)) {
+		printf("continued\n");
+	}
+}
+
+/*
+ * This function essentially does the following:
+ * mkdir ${prefix}/fsv-${uid}
+ * mkdir ${prefix}/fsv-${uid}/${cmddir}
+ *
+ * Returns fd to the new cmddir.
+ */
+int
+mkcmddir(const char *cmddir, const char *prefix)
+{
+	int fd_prefix;
+	int fd_fsvdir;
+	int fd_cmddir;
+	char fsvdir[32];
+
+	/* build name of fsvdir */
+	int l;
+	l = snprintf(fsvdir, sizeof(fsvdir), "fsv-%ld", (long)geteuid());
+	if (l < 0) {
+		err(EX_OSERR, "snprintf");
+	} else if (l >= sizeof(fsvdir)) {
+		/* should never happen */
+		errx(EX_SOFTWARE, "snprintf: fsvdir too long");
+	}
+
+	/* open $prefix */
+	if ((fd_prefix = open(prefix, O_RDONLY|O_DIRECTORY)) == -1)
+		err(EX_OSFILE, "can't open `%s'", prefix);
+
+	/* mkdir $prefix/fsv-$uid */
+	if (mkdirat(fd_prefix, fsvdir, 00777) == -1) {
+		switch (errno) {
+		case EEXIST:
+			/* already exists, ok */
+			break;
+		default:
+			err(EX_IOERR, "can't mkdir `%s/%s'", prefix, fsvdir);
+		}
+	}
+	if ((fd_fsvdir = openat(fd_prefix, fsvdir, O_RDONLY|O_DIRECTORY)) == -1)
+		err(EX_IOERR, "can't open `%s/%s' as directory", prefix, fsvdir);
+
+	close(fd_prefix);
+
+	/* mkdir $prefix/fsv-$uid/$cmddir */
+	if ((mkdirat(fd_fsvdir, cmddir, 00777)) == -1) {
+		switch (errno) {
+		case EEXIST:
+			/* already exists, ok */
+			break;
+		default:
+			err(EX_IOERR, "can't mkdir `%s/%s/%s'", prefix, fsvdir, cmddir);
+		}
+	}
+	if ((fd_cmddir = openat(fd_fsvdir, cmddir, O_RDONLY|O_DIRECTORY)) == -1)
+		err(EX_IOERR, "can't open `%s/%s/%s' as directory", prefix, fsvdir, prefix);
+
+	close(fd_fsvdir);
+
+	return fd_cmddir;
 }
