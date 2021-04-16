@@ -41,10 +41,16 @@
 
 static const char *progversion = "0.0.0";
 static char *progname;
+/* Process group for supervisor and children */
+static pid_t pgrp;
+/* Signal block mask: new and original */
+static sigset_t bmask, obmask;
+
 
 struct proc {
+	char cmd[128];	/* cmd and args, truncated if necessary */
 	pid_t pid;
-	int status;
+	int status;	/* if non-zero, exit status as returned by wait(2) */
 	struct timeval tv;
 };
 
@@ -54,18 +60,35 @@ static volatile sig_atomic_t termsig = 0;
 void usage(), version();
 void onchld(int), onterm(int);
 void print_wstatus(int);
+pid_t exec_str(const char *), exec_argv(char *[]);
 int mkcmddir(const char *, const char *);
 
 int
 main(int argc, char *argv[])
 {
 	char *cmdname = NULL;
+	char *logger = NULL;
 	int logpipe[2];
 
-	struct proc cmd = { 0, 0, { 0, 0 } };
-	struct proc log = { 0, 0, { 0, 0 } };
+	struct proc cmd = { "", 0, 0, { 0, 0 } };
+	struct proc log = { "", 0, 0, { 0, 0 } };
 
 	progname = argv[0];
+
+	/* Fork to make sure we're not a process group leader. */
+	switch (fork()) {
+	case -1:
+		err(EX_OSERR, "cannot fork");
+		break;
+	case 0:
+		/* Child: continue. */
+		break;
+	default:
+		exit(0);
+	}
+
+	if ((pgrp = setsid()) == -1)
+		err(EX_OSERR, "cannot setsid(2)");
 
 	if (pipe(logpipe) == -1)
 		err(EX_OSERR, "cannot make pipe");
@@ -73,8 +96,6 @@ main(int argc, char *argv[])
 	/*
 	 * Block signals until ready to catch them.
 	 */
-
-	sigset_t bmask, obmask;
 
 	sigemptyset(&bmask);
 	sigaddset(&bmask, SIGCHLD);
@@ -123,6 +144,9 @@ main(int argc, char *argv[])
 			usage();
 			exit(0);
 			break;
+		case 'l':
+			logger = optarg;
+			break;
 		case 'n':
 			cmdname = optarg;
 			break;
@@ -157,21 +181,17 @@ main(int argc, char *argv[])
 	fd_cmddir = mkcmddir((const char*)cmdname, prefix);
 
 	/*
+	 * Run log process, if applicable.
+	 */
+
+	gettimeofday(&log.tv, NULL);
+
+	/*
 	 * Run cmd.
 	 */
 
 	gettimeofday(&cmd.tv, NULL);
-	switch(cmd.pid = fork()) {
-	case -1:
-		err(EX_OSERR, "cannot fork");
-		break;
-	case 0:
-		/* Child: reset signal handling and exec */
-		sigprocmask(SIG_SETMASK, &obmask, NULL);
-		if (execvp(argv[0], argv) == -1)
-			err(EX_UNAVAILABLE, "exec `%s' failed", argv[0]);
-		break;
-	}
+	cmd.pid = exec_argv(argv);
 
 	printf("child started at %d\n", cmd.tv.tv_sec);
 
@@ -269,6 +289,34 @@ print_wstatus(int status)
 		    strsignal(csig), csig);
 	} else if (WIFCONTINUED(status)) {
 		printf("continued\n");
+	}
+}
+
+/*
+ * Subroutines to fork & exec the log & cmd processes.
+ * Fork, reset signal handling, and exec.
+ * Send SIGTERM to the process group if there's an error.
+ * Return PID of child.
+ */
+pid_t exec_str(const char *str) {
+	/* TODO: execl the shell to process str */
+}
+pid_t exec_argv(char *argv[]) {
+	pid_t pid;
+
+	switch(pid = fork()) {
+	case -1:
+		err(EX_OSERR, "cannot fork");
+		break;
+	case 0:
+		sigprocmask(SIG_SETMASK, &obmask, NULL);
+		if (execvp(argv[0], argv) == -1) {
+			warn("exec `%s' failed (sending SIGTERM)", argv[0]);
+			kill(-pgrp, SIGTERM);
+		}
+		break;
+	default:
+		return pid;
 	}
 }
 
