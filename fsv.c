@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,8 +67,10 @@ int mkcmddir(const char *, const char *);
 int
 main(int argc, char *argv[])
 {
+	bool logging = false;
 	char *cmdname = NULL;
-	char *logger = NULL;
+	char *cmd_fullcmd = NULL;
+	char *log_fullcmd = NULL;
 	int logpipe[2];
 
 	struct proc cmd = { "", 0, 0, { 0, 0 } };
@@ -145,7 +148,7 @@ main(int argc, char *argv[])
 			exit(0);
 			break;
 		case 'l':
-			logger = optarg;
+			log_fullcmd = optarg;
 			break;
 		case 'n':
 			cmdname = optarg;
@@ -184,7 +187,10 @@ main(int argc, char *argv[])
 	 * Run log process, if applicable.
 	 */
 
-	gettimeofday(&log.tv, NULL);
+	if (logging) {
+		gettimeofday(&log.tv, NULL);
+		exec_str(log_fullcmd);
+	}
 
 	/*
 	 * Run cmd.
