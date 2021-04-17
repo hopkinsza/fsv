@@ -47,7 +47,6 @@ static pid_t pgrp;
 /* Signal block mask: new and original */
 static sigset_t bmask, obmask;
 
-
 struct proc {
 	char cmd[128];	/* cmd and args, truncated if necessary */
 	pid_t pid;
@@ -78,6 +77,7 @@ main(int argc, char *argv[])
 
 	progname = argv[0];
 
+#if 0
 	/* Fork to make sure we're not a process group leader. */
 	switch (fork()) {
 	case -1:
@@ -92,6 +92,7 @@ main(int argc, char *argv[])
 
 	if ((pgrp = setsid()) == -1)
 		err(EX_OSERR, "cannot setsid(2)");
+#endif
 
 	if (pipe(logpipe) == -1)
 		err(EX_OSERR, "cannot make pipe");
@@ -306,13 +307,45 @@ print_wstatus(int status)
  */
 pid_t exec_str(const char *str) {
 	/* TODO: execl the shell to process str */
+	pid_t pid;
+	size_t l;
+	char *command;
+
+	switch(pid = fork()) {
+	case -1:
+		warn("cannot fork (sending SIGTERM)");
+		kill(-pgrp, SIGTERM);
+		break;
+	case 0:
+		sigprocmask(SIG_SETMASK, &obmask, NULL);
+
+		/*
+		 * Allocate buffer to hold the additional 5 bytes `exec '.
+		 * strcpy(3) and strcat(3) should be ok here.
+		 */
+		l = strlen(str) + 1;
+		l += 5;
+		command = malloc(l);
+		strcpy(command, "exec ");
+		strcat(command, str);
+
+		if (execl("/bin/sh", "sh", "-c", command, (char *)NULL) == -1) {
+			warn("exec `%s' failed (sending SIGTERM)", str);
+			kill(-pgrp, SIGTERM);
+		}
+		break;
+	default:
+		return pid;
+	}
+
 }
 pid_t exec_argv(char *argv[]) {
 	pid_t pid;
 
 	switch(pid = fork()) {
 	case -1:
-		err(EX_OSERR, "cannot fork");
+		warn("cannot fork (sending SIGTERM)");
+		kill(-pgrp, SIGTERM);
 		break;
 	case 0:
 		sigprocmask(SIG_SETMASK, &obmask, NULL);
