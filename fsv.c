@@ -17,22 +17,27 @@
 #include <unistd.h>
 
 /*
- * -n name
- */
-
-/*
+ * planned flags:
+ *   -n name
+ *   -c 'cmd with args'
+ *   -l 'logger with args'
+ *   -s name: status
+ *
+ * probably:
+ *   -k sig: signal -- pass args to kill(1)?
+ *
+ * maybe:
+ *   -d dir: chdir
+ *   -m: as in freebsd daemon(8)
+ *   -f: same, maybe with mask arg
+ *
  * chpst opts:
  * -b argv0
  * -e envdir
  * -/ root
  * -n nice
  * -l lock
- *   -m bytes: memory limits
- *   -d bytes: data segment limit
- *   -o n: open fd limit
- *   -p n: process limit per uid
- *   -f bytes: output file size limit
- *   -c bytes: coredump size limit
+ * (limit options skipped)
  * -v
  * -P new process group
  * -0 close stdin
@@ -47,10 +52,32 @@ static pid_t pgrp;
 /* Signal block mask: new and original */
 static sigset_t bmask, obmask;
 
+struct fsv {
+	/* Is fsv running, and when was the last change of this state */
+	bool running;
+	struct timeval tv;
+	/*
+	 * How many seconds to wait until resetting recent_restarts to 0
+	 *   (value of 0 means never);
+	 * How many recent restarts to allow before taking action;
+	 * What action to take:
+	 *   0: stop restarting
+	 *   1: nothing
+	 *   n: wait n secs before restarting again
+	 */
+	time_t recent_secs;
+	time_t restarts_recent_max;
+	time_t timeout;
+};
+
 struct proc {
-	char cmd[128];	/* cmd and args, truncated if necessary */
 	pid_t pid;
-	int status;	/* if non-zero, exit status as returned by wait(2) */
+	unsigned long restarts;
+	unsigned long recent_restarts;
+	/* Time of the most recent restart */
+	struct timeval last_restart;
+	/* If non-zero, most recent exit status as returned by wait(2) */
+	int status;
 	struct timeval tv;
 };
 
@@ -67,13 +94,17 @@ int
 main(int argc, char *argv[])
 {
 	bool logging = false;
-	char *cmdname = NULL;
+	char *cmdname = NULL;	/* Extracted from argv or -c arg */
 	char *cmd_fullcmd = NULL;
 	char *log_fullcmd = NULL;
 	int logpipe[2];
 
-	struct proc cmd = { "", 0, 0, { 0, 0 } };
-	struct proc log = { "", 0, 0, { 0, 0 } };
+	struct fsv fsv;
+	struct proc cmd;
+	struct proc log;
+
+	fsv.pid = getpid();
+	gettimeofday(&fsv.tv, NULL);
 
 	progname = argv[0];
 
@@ -168,21 +199,31 @@ main(int argc, char *argv[])
 	argv += optind;
 
 	/*
-	 * Verify that a cmdname was given, make cmddir.
+	 * Verify that a cmdname was given, make cmddir and chdir to it.
 	 */
 
-	if (argc == 0) {
-		fprintf(stderr, "no cmd to execute\n");
+	if (cmdname == NULL && argc == 0) {
+		warnx("no cmd to execute");
+		usage();
+		exit(EX_USAGE);
+	}
+	if (cmdname != NULL && argc > 0) {
+		warnx("was given `-c' in addition to command");
 		usage();
 		exit(EX_USAGE);
 	}
 
-	const char *prefix = "/var/tmp";
 	if (cmdname == NULL)
 		cmdname = argv[0];
-	int fd_cmddir;
 
-	fd_cmddir = mkcmddir(cmdname, prefix);
+	{
+		const char *prefix = "/var/tmp";
+		int cmddir_fd;
+
+		cmddir_fd = mkcmddir(cmdname, prefix);
+		fchdir(cmddir_fd);
+		close(cmddir_fd);
+	}
 
 	/*
 	 * Run log process, if applicable.
