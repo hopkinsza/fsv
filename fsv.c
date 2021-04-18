@@ -334,10 +334,8 @@ pid_t exec_str(const char *str) {
 			kill(-pgrp, SIGTERM);
 		}
 		break;
-	default:
-		return pid;
 	}
-
+	return pid;
 }
 pid_t exec_argv(char *argv[]) {
 	pid_t pid;
@@ -354,9 +352,8 @@ pid_t exec_argv(char *argv[]) {
 			kill(-pgrp, SIGTERM);
 		}
 		break;
-	default:
-		return pid;
 	}
+	return pid;
 }
 
 /*
