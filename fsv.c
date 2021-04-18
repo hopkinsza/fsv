@@ -182,7 +182,7 @@ main(int argc, char *argv[])
 		cmdname = argv[0];
 	int fd_cmddir;
 
-	fd_cmddir = mkcmddir((const char*)cmdname, prefix);
+	fd_cmddir = mkcmddir(cmdname, prefix);
 
 	/*
 	 * Run log process, if applicable.
@@ -200,7 +200,7 @@ main(int argc, char *argv[])
 	gettimeofday(&cmd.tv, NULL);
 	cmd.pid = exec_argv(argv);
 
-	printf("child started at %d\n", cmd.tv.tv_sec);
+	printf("child started at %ld\n", (long)cmd.tv.tv_sec);
 
 	/*
 	 * Main loop. Wait for signals, update cmd and log structs when received.
