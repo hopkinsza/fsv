@@ -9,12 +9,29 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
+
+void
+debug(char *fmt, ...)
+{
+#ifdef DEBUG
+	if (1)
+#else
+	if (0)
+#endif
+	{
+		va_list args;
+		va_start(args, fmt);
+		vfprintf(stderr, fmt, args);
+		va_end(args);
+	}
+}
 
 /*
  * planned flags:
@@ -57,7 +74,7 @@ struct fsv {
 	bool running;
 	struct timeval tv;
 	/*
-	 * How many seconds to wait until resetting recent_restarts to 0
+	 * How many seconds to wait until decrementing recent_restarts by 1
 	 *   (value of 0 means never);
 	 * How many recent restarts to allow before taking action;
 	 * What action to take:
@@ -103,7 +120,7 @@ main(int argc, char *argv[])
 	struct proc cmd;
 	struct proc log;
 
-	fsv.pid = getpid();
+	//fsv.pid = getpid();
 	gettimeofday(&fsv.tv, NULL);
 
 	progname = argv[0];
@@ -180,6 +197,7 @@ main(int argc, char *argv[])
 			exit(0);
 			break;
 		case 'l':
+			logging = true;
 			log_fullcmd = optarg;
 			break;
 		case 'n':
@@ -199,22 +217,42 @@ main(int argc, char *argv[])
 	argv += optind;
 
 	/*
-	 * Verify that a cmdname was given, make cmddir and chdir to it.
+	 * Verify that we have a command to run.
+	 * This can be either cmd_fullcmd from -c, or argv, but not both.
+	 * Then populate cmdname if not overridden by -n.
 	 */
 
-	if (cmdname == NULL && argc == 0) {
-		warnx("no cmd to execute");
-		usage();
-		exit(EX_USAGE);
-	}
-	if (cmdname != NULL && argc > 0) {
-		warnx("was given `-c' in addition to command");
-		usage();
-		exit(EX_USAGE);
+	if (cmd_fullcmd != NULL) {
+		/* Given via -c. */
+		if (argc > 0) {
+			warnx("was given `-c' in addition to command");
+			usage();
+			exit(EX_USAGE);
+		}
+
+		if (cmdname == NULL) {
+			/* Use portion of the string up to the first space. */
+			cmdname = malloc(strlen(cmd_fullcmd) + 1);
+			strcpy(cmdname, cmd_fullcmd);
+			strtok(cmdname, " ");
+		}
+	} else {
+		/* Not given via -c, use argv instead. */
+		if (argc == 0) {
+			warnx("no cmd to execute");
+			usage();
+			exit(EX_USAGE);
+		}
+
+		if (cmdname == NULL)
+			cmdname = argv[0];
 	}
 
-	if (cmdname == NULL)
-		cmdname = argv[0];
+	debug("cmdname is %s", cmdname);
+
+	/*
+	 * Make cmddir and chdir to it.
+	 */
 
 	{
 		const char *prefix = "/var/tmp";
@@ -231,7 +269,7 @@ main(int argc, char *argv[])
 
 	if (logging) {
 		gettimeofday(&log.tv, NULL);
-		exec_str(log_fullcmd);
+		log.pid = exec_str(log_fullcmd);
 	}
 
 	/*
@@ -239,7 +277,11 @@ main(int argc, char *argv[])
 	 */
 
 	gettimeofday(&cmd.tv, NULL);
-	cmd.pid = exec_argv(argv);
+
+	if (argv > 0)
+		cmd.pid = exec_argv(argv);
+	else
+		cmd.pid = exec_str(cmd_fullcmd);
 
 	printf("child started at %ld\n", (long)cmd.tv.tv_sec);
 
