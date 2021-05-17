@@ -231,7 +231,12 @@ main(int argc, char *argv[])
 		}
 
 		if (cmdname == NULL) {
-			/* Use portion of the string up to the first space. */
+			/*
+			 * Use portion of the string up to the first space.
+			 * This is equivalent to the command as long as it
+			 * doesn't contain a space, and what kind of maniac
+			 * would do that?
+			 */
 			cmdname = malloc(strlen(cmd_fullcmd) + 1);
 			strcpy(cmdname, cmd_fullcmd);
 			strtok(cmdname, " ");
@@ -248,7 +253,7 @@ main(int argc, char *argv[])
 			cmdname = argv[0];
 	}
 
-	debug("cmdname is %s", cmdname);
+	debug("cmdname is %s\n", cmdname);
 
 	/*
 	 * Make cmddir and chdir to it.
