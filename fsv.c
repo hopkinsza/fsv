@@ -47,16 +47,6 @@
  * -2 close stderr
  */
 
-#if 0
-static bool verbose = true;
-static const char *progversion = "0.0.0";
-static char *progname;
-/* Process group for supervisor and children */
-static pid_t pgrp;
-/* Signal block mask: new and original */
-static sigset_t bmask, obmask;
-#endif
-
 bool verbose = true;
 const char *progversion = "0.0.0";
 char *progname;
