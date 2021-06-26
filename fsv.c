@@ -17,27 +17,29 @@
 #include <sysexits.h>
 #include <unistd.h>
 
+static bool verbose = true;
+
 void
 debug(char *fmt, ...)
 {
-#ifdef DEBUG
-	if (1)
-#else
-	if (0)
-#endif
-	{
-		va_list args;
-		va_start(args, fmt);
-		vfprintf(stderr, fmt, args);
-		va_end(args);
+	if (verbose) {
+		va_list ap;
+		va_start(ap, fmt);
+		vfprintf(stderr, fmt, ap);
+		va_end(ap);
 	}
 }
 
 /*
+ * implemented:
+ *   -c 'cmd'
+ *   -h
+ *   -l 'logproc'
+ *   -n 'name'
+ *   -v
+ *   -V
+ *
  * planned flags:
- *   -n name
- *   -c 'cmd with args'
- *   -l 'logger with args'
  *   -s name: status
  *
  * probably:
@@ -70,32 +72,39 @@ static pid_t pgrp;
 static sigset_t bmask, obmask;
 
 struct fsv {
-	/* Is fsv running, and when was the last change of this state */
+	/* Is fsv running, what's the PID, and since when */
 	bool running;
-	struct timeval tv;
+	pid_t pid;
+	struct timeval since;
 	/*
-	 * How many seconds to wait until decrementing recent_restarts by 1
-	 *   (value of 0 means never);
+	 * Only relevant if not running. True if fsv "gave up" on restarting
+	 * the program because timeout is set to 0 (see next)
+	 */
+	bool gaveup;
+	/*
+	 * The meaning of the following 3 values are related to the programs
+	 *   being run. They represent, respectively:
+	 *
+	 * Max amount of seconds before considering this a new string of crashes
+	 *   i.e. resetting recent_restarts to 0 (value of 0 means never);
 	 * How many recent restarts to allow before taking action;
 	 * What action to take:
 	 *   0: stop restarting
-	 *   1: nothing
 	 *   n: wait n secs before restarting again
 	 */
 	time_t recent_secs;
-	time_t restarts_recent_max;
+	time_t recent_restarts_max;
 	time_t timeout;
 };
 
 struct proc {
 	pid_t pid;
-	unsigned long restarts;
+	unsigned long total_restarts;
 	unsigned long recent_restarts;
 	/* Time of the most recent restart */
-	struct timeval last_restart;
+	struct timeval tv;
 	/* If non-zero, most recent exit status as returned by wait(2) */
 	int status;
-	struct timeval tv;
 };
 
 static volatile sig_atomic_t gotchld = 0;
@@ -104,7 +113,8 @@ static volatile sig_atomic_t termsig = 0;
 void usage(), version();
 void onchld(int), onterm(int);
 void print_wstatus(int);
-pid_t exec_str(const char *), exec_argv(char *[]);
+void mydup2(int, int);
+pid_t exec_str(const char *, int, int, int), exec_argv(char *[], int, int, int);
 int mkcmddir(const char *, const char *);
 
 int
@@ -120,8 +130,15 @@ main(int argc, char *argv[])
 	struct proc cmd;
 	struct proc log;
 
-	//fsv.pid = getpid();
-	gettimeofday(&fsv.tv, NULL);
+	// fsv = { 0, 0, { 0, 0 }, 0, 0, 0, 0 };
+	fsv.recent_secs = 3600; /* 1 hr */
+	fsv.recent_restarts_max = 2;
+	fsv.timeout = 0;
+
+	/*
+	cmd = { };
+	log = { };
+	*/
 
 	progname = argv[0];
 
@@ -141,6 +158,13 @@ main(int argc, char *argv[])
 	if ((pgrp = setsid()) == -1)
 		err(EX_OSERR, "cannot setsid(2)");
 #endif
+
+	if (getpgid(0) != getpid()) {
+		errx(1, "not a process group leader");
+	}
+
+	fsv.pid = getpid();
+	gettimeofday(&fsv.since, NULL);
 
 	if (pipe(logpipe) == -1)
 		err(EX_OSERR, "cannot make pipe");
@@ -182,16 +206,25 @@ main(int argc, char *argv[])
 	 * Process arguments.
 	 */
 
+	const char *getopt_str = "+chl:n:vV";
+
 	struct option longopts[] = {
+		{ "cmd",	required_argument,	NULL,		'c' },
 		{ "help",	no_argument,		NULL,		'h' },
+		{ "log",	required_argument,	NULL,		'l' },
 		{ "name",	required_argument,	NULL,		'n' },
+		{ "quiet",	no_argument,		NULL,		'q' },
+		{ "verbose",	no_argument,		NULL,		'v' },
 		{ "version",	no_argument,		NULL,		'V' },
 		{ NULL,		0,			NULL,		0 }
 	};
 
 	int ch;
-	while ((ch = getopt_long(argc, argv, "+hn:V", longopts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, getopt_str, longopts, NULL)) != -1) {
 		switch(ch) {
+		case 'c':
+			cmd_fullcmd = optarg;
+			break;
 		case 'h':
 			usage();
 			exit(0);
@@ -202,6 +235,12 @@ main(int argc, char *argv[])
 			break;
 		case 'n':
 			cmdname = optarg;
+			break;
+		case 'q':
+			verbose = false;
+			break;
+		case 'v':
+			verbose = true;
 			break;
 		case 'V':
 			version();
@@ -274,7 +313,10 @@ main(int argc, char *argv[])
 
 	if (logging) {
 		gettimeofday(&log.tv, NULL);
-		log.pid = exec_str(log_fullcmd);
+		/* TODO1: add flag to control which fd's to pass through the pipe */
+		log.pid = exec_str(log_fullcmd, logpipe[0], -1, -1);
+
+		debug("started log process (%ld) at %ld\n", log.pid, (long)log.tv.tv_sec);
 	}
 
 	/*
@@ -283,12 +325,25 @@ main(int argc, char *argv[])
 
 	gettimeofday(&cmd.tv, NULL);
 
-	if (argv > 0)
-		cmd.pid = exec_argv(argv);
-	else
-		cmd.pid = exec_str(cmd_fullcmd);
+	{
+		int fd0, fd1, fd2;
+		fd0 = -1;
+		if (logging) {
+			fd1 = logpipe[1];
+			fd2 = logpipe[1];
+		} else {
+			fd1 = -1;
+			fd2 = -1;
+		}
 
-	printf("child started at %ld\n", (long)cmd.tv.tv_sec);
+		/* TODO1 */
+		if (argv > 0)
+			cmd.pid = exec_argv(argv, fd0, fd1, fd2);
+		else
+			cmd.pid = exec_str(cmd_fullcmd, fd0, fd1, fd2);
+	}
+
+	debug("started cmd process (%ld) at %ld\n", cmd.pid, (long)cmd.tv.tv_sec);
 
 	/*
 	 * Main loop. Wait for signals, update cmd and log structs when received.
@@ -306,21 +361,21 @@ main(int argc, char *argv[])
 
 			while ((wpid = waitpid(WAIT_ANY, &status, wpf)) > 0) {
 				if (wpid == cmd.pid) {
-					printf("cmd update:\n");
+					debug("cmd update:\n");
 					cmd.status = status;
 					// TODO: update `struct proc'
 				} else if (wpid == log.pid) {
-					printf("log update:\n");
+					debug("log update:\n");
 					log.status = status;
 				} else {
-					printf("??? unknown child!\n");
+					debug("??? unknown child!\n");
 				}
 
 				print_wstatus(status);
-				printf("\n");
+				debug("\n");
 			}
 		} else if (termsig) {
-			printf("caught signal %s (%d)\n",
+			debug("\ncaught signal %s (%d)\n",
 			    strsignal(termsig), termsig);
 			/*
 			 * Restore default handler, unblock signals, and raise
@@ -370,30 +425,46 @@ print_wstatus(int status)
 	int csig;
 
 	if (WIFEXITED(status)) {
-		printf("exited %d\n", WEXITSTATUS(status));
+		debug("exited %d\n", WEXITSTATUS(status));
 	} else if (WIFSIGNALED(status)) {
 		csig = WTERMSIG(status);
-		printf("terminated by signal: %s (%d)",
+		debug("terminated by signal: %s (%d)",
 		    strsignal(csig), csig);
 		if (WCOREDUMP(status))
-			printf(", dumped core");
-		printf("\n");
+			debug(", dumped core");
+		debug("\n");
 	} else if (WIFSTOPPED(status)) {
 		csig = WSTOPSIG(status);
-		printf("stopped by signal: %s (%d)\n",
+		debug("stopped by signal: %s (%d)\n",
 		    strsignal(csig), csig);
 	} else if (WIFCONTINUED(status)) {
-		printf("continued\n");
+		debug("continued\n");
 	}
 }
 
 /*
  * Subroutines to fork & exec the log & cmd processes.
- * Fork, reset signal handling, and exec.
+ * Fork, reset signal handling, set up STD{IN,OUT,ERR}, and exec.
  * Send SIGTERM to the process group if there's an error.
- * Return PID of child.
+ * Return PID of child to the parent.
+ *
+ * `in, out, err' are the file descriptors to dup into that respective
+ * slot, since child inherits FDs.
+ * Value of -1 means do nothing.
+ * TODO: should -1 mean do nothing, or close it?
  */
-pid_t exec_str(const char *str) {
+void mydup2(int oldfd, int newfd) {
+	/* just to reduce repeated code */
+
+	if (oldfd == -1)
+		return;
+
+	if (dup2(oldfd, newfd) == -1) {
+		warn("dup2(2) failed (sending SIGTERM)");
+		kill(-pgrp, SIGTERM);
+	}
+}
+pid_t exec_str(const char *str, int in, int out, int err) {
 	/* TODO: execl the shell to process str */
 	pid_t pid;
 	size_t l;
@@ -406,6 +477,10 @@ pid_t exec_str(const char *str) {
 		break;
 	case 0:
 		sigprocmask(SIG_SETMASK, &obmask, NULL);
+
+		mydup2(in,  0);
+		mydup2(out, 1);
+		mydup2(err, 2);
 
 		/*
 		 * Allocate buffer to hold the additional 5 bytes `exec '.
@@ -425,7 +500,7 @@ pid_t exec_str(const char *str) {
 	}
 	return pid;
 }
-pid_t exec_argv(char *argv[]) {
+pid_t exec_argv(char *argv[], int in, int out, int err) {
 	pid_t pid;
 
 	switch(pid = fork()) {
@@ -435,6 +510,11 @@ pid_t exec_argv(char *argv[]) {
 		break;
 	case 0:
 		sigprocmask(SIG_SETMASK, &obmask, NULL);
+
+		mydup2(in,  0);
+		mydup2(out, 1);
+		mydup2(err, 2);
+
 		if (execvp(argv[0], argv) == -1) {
 			warn("exec `%s' failed (sending SIGTERM)", argv[0]);
 			kill(-pgrp, SIGTERM);
