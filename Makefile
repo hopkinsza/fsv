@@ -1,11 +1,21 @@
+# Makefile
+
+PROG = fsv
+SRCS = fsv.c proc.c util.c
+
 CFLAGS += -Wall
+
 
 .PHONY: clean
 
-fsv: fsv.c
+$(PROG): $(SRCS)
+
+$(SRCS): extern.h
+	@echo "extern.h updated: touch \`$@'"
+	@touch $@
 
 clean:
-	@rm fsv
+	@rm $(PROG)
 	@echo cleaned
 
 # a.out: fsv.c

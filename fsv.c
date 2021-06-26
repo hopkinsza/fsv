@@ -1,34 +1,17 @@
 //#define _GNU_SOURCE
 
-#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 
 #include <err.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <getopt.h>
-#include <signal.h>
-#include <stdarg.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
 
-static bool verbose = true;
-
-void
-debug(char *fmt, ...)
-{
-	if (verbose) {
-		va_list ap;
-		va_start(ap, fmt);
-		vfprintf(stderr, fmt, ap);
-		va_end(ap);
-	}
-}
+#include "extern.h"
 
 /*
  * implemented:
@@ -64,12 +47,23 @@ debug(char *fmt, ...)
  * -2 close stderr
  */
 
+#if 0
+static bool verbose = true;
 static const char *progversion = "0.0.0";
 static char *progname;
 /* Process group for supervisor and children */
 static pid_t pgrp;
 /* Signal block mask: new and original */
 static sigset_t bmask, obmask;
+#endif
+
+bool verbose = true;
+const char *progversion = "0.0.0";
+char *progname;
+/* Process group for supervisor and children */
+pid_t pgrp;
+/* Signal block mask: new and original */
+sigset_t bmask, obmask;
 
 struct fsv {
 	/* Is fsv running, what's the PID, and since when */
@@ -110,12 +104,7 @@ struct proc {
 static volatile sig_atomic_t gotchld = 0;
 static volatile sig_atomic_t termsig = 0;
 
-void usage(), version();
 void onchld(int), onterm(int);
-void print_wstatus(int);
-void mydup2(int, int);
-pid_t exec_str(const char *, int, int, int), exec_argv(char *[], int, int, int);
-int mkcmddir(const char *, const char *);
 
 int
 main(int argc, char *argv[])
@@ -392,18 +381,6 @@ main(int argc, char *argv[])
 }
 
 void
-usage()
-{
-	fprintf(stderr, "usage: %s blah blah\n", progname);
-}
-
-void
-version()
-{
-	fprintf(stderr, "fsv v%s\n", progversion);
-}
-
-void
 onchld(int sig)
 {
 	gotchld = 1;
@@ -413,175 +390,4 @@ void
 onterm(int sig)
 {
 	termsig = sig;
-}
-
-/*
- * Print out some updates given the status updated from wait(2).
- */
-void
-print_wstatus(int status)
-{
-	/* Signal that the child received, if applicable. */
-	int csig;
-
-	if (WIFEXITED(status)) {
-		debug("exited %d\n", WEXITSTATUS(status));
-	} else if (WIFSIGNALED(status)) {
-		csig = WTERMSIG(status);
-		debug("terminated by signal: %s (%d)",
-		    strsignal(csig), csig);
-		if (WCOREDUMP(status))
-			debug(", dumped core");
-		debug("\n");
-	} else if (WIFSTOPPED(status)) {
-		csig = WSTOPSIG(status);
-		debug("stopped by signal: %s (%d)\n",
-		    strsignal(csig), csig);
-	} else if (WIFCONTINUED(status)) {
-		debug("continued\n");
-	}
-}
-
-/*
- * Subroutines to fork & exec the log & cmd processes.
- * Fork, reset signal handling, set up STD{IN,OUT,ERR}, and exec.
- * Send SIGTERM to the process group if there's an error.
- * Return PID of child to the parent.
- *
- * `in, out, err' are the file descriptors to dup into that respective
- * slot, since child inherits FDs.
- * Value of -1 means do nothing.
- * TODO: should -1 mean do nothing, or close it?
- */
-void mydup2(int oldfd, int newfd) {
-	/* just to reduce repeated code */
-
-	if (oldfd == -1)
-		return;
-
-	if (dup2(oldfd, newfd) == -1) {
-		warn("dup2(2) failed (sending SIGTERM)");
-		kill(-pgrp, SIGTERM);
-	}
-}
-pid_t exec_str(const char *str, int in, int out, int err) {
-	/* TODO: execl the shell to process str */
-	pid_t pid;
-	size_t l;
-	char *command;
-
-	switch(pid = fork()) {
-	case -1:
-		warn("cannot fork (sending SIGTERM)");
-		kill(-pgrp, SIGTERM);
-		break;
-	case 0:
-		sigprocmask(SIG_SETMASK, &obmask, NULL);
-
-		mydup2(in,  0);
-		mydup2(out, 1);
-		mydup2(err, 2);
-
-		/*
-		 * Allocate buffer to hold the additional 5 bytes `exec '.
-		 * strcpy(3) and strcat(3) should be ok here.
-		 */
-		l = strlen(str) + 1;
-		l += 5;
-		command = malloc(l);
-		strcpy(command, "exec ");
-		strcat(command, str);
-
-		if (execl("/bin/sh", "sh", "-c", command, (char *)NULL) == -1) {
-			warn("exec `%s' failed (sending SIGTERM)", str);
-			kill(-pgrp, SIGTERM);
-		}
-		break;
-	}
-	return pid;
-}
-pid_t exec_argv(char *argv[], int in, int out, int err) {
-	pid_t pid;
-
-	switch(pid = fork()) {
-	case -1:
-		warn("cannot fork (sending SIGTERM)");
-		kill(-pgrp, SIGTERM);
-		break;
-	case 0:
-		sigprocmask(SIG_SETMASK, &obmask, NULL);
-
-		mydup2(in,  0);
-		mydup2(out, 1);
-		mydup2(err, 2);
-
-		if (execvp(argv[0], argv) == -1) {
-			warn("exec `%s' failed (sending SIGTERM)", argv[0]);
-			kill(-pgrp, SIGTERM);
-		}
-		break;
-	}
-	return pid;
-}
-
-/*
- * This function essentially does the following:
- * mkdir ${prefix}/fsv-${uid}
- * mkdir ${prefix}/fsv-${uid}/${cmddir}
- *
- * Returns fd to the new cmddir.
- */
-int
-mkcmddir(const char *cmddir, const char *prefix)
-{
-	int fd_prefix;
-	int fd_fsvdir;
-	int fd_cmddir;
-	char fsvdir[32];
-
-	/* build name of fsvdir */
-	int l;
-	l = snprintf(fsvdir, sizeof(fsvdir), "fsv-%ld", (long)geteuid());
-	if (l < 0) {
-		err(EX_OSERR, "snprintf");
-	} else if (l >= sizeof(fsvdir)) {
-		/* should never happen */
-		errx(EX_SOFTWARE, "snprintf: fsvdir too long");
-	}
-
-	/* open $prefix */
-	if ((fd_prefix = open(prefix, O_RDONLY|O_DIRECTORY)) == -1)
-		err(EX_OSFILE, "can't open `%s'", prefix);
-
-	/* mkdir $prefix/fsv-$uid */
-	if (mkdirat(fd_prefix, fsvdir, 00777) == -1) {
-		switch (errno) {
-		case EEXIST:
-			/* already exists, ok */
-			break;
-		default:
-			err(EX_IOERR, "can't mkdir `%s/%s'", prefix, fsvdir);
-		}
-	}
-	if ((fd_fsvdir = openat(fd_prefix, fsvdir, O_RDONLY|O_DIRECTORY)) == -1)
-		err(EX_IOERR, "can't open `%s/%s' as directory", prefix, fsvdir);
-
-	close(fd_prefix);
-
-	/* mkdir $prefix/fsv-$uid/$cmddir */
-	if ((mkdirat(fd_fsvdir, cmddir, 00777)) == -1) {
-		switch (errno) {
-		case EEXIST:
-			/* already exists, ok */
-			break;
-		default:
-			err(EX_IOERR, "can't mkdir `%s/%s/%s'", prefix, fsvdir, cmddir);
-		}
-	}
-	if ((fd_cmddir = openat(fd_fsvdir, cmddir, O_RDONLY|O_DIRECTORY)) == -1)
-		err(EX_IOERR, "can't open `%s/%s/%s' as directory", prefix, fsvdir, prefix);
-
-	close(fd_fsvdir);
-
-	return fd_cmddir;
 }
