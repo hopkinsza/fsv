@@ -1,14 +1,19 @@
 //#define _GNU_SOURCE
 
 #include <sys/time.h>
+#include <sys/types.h> // write_info
+#include <sys/stat.h>  // ^
 #include <sys/wait.h>
 
 #include <err.h>
+#include <fcntl.h>     // ^
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h> // status
 #include <sysexits.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "extern.h"
@@ -66,8 +71,7 @@ struct fsv {
 	 */
 	bool gaveup;
 	/*
-	 * The meaning of the following 3 values are related to the programs
-	 *   being run. They represent, respectively:
+	 * The following 3 values are related to the programs being run.
 	 *
 	 * Max amount of seconds before considering this a new string of crashes
 	 *   i.e. resetting recent_restarts to 0 (value of 0 means never);
@@ -91,35 +95,59 @@ struct proc {
 	int status;
 };
 
+/* struct to write into a file for outside reference */
+struct allinfo {
+	struct fsv fsv;
+	struct proc procs[2];
+};
+
 static volatile sig_atomic_t gotchld = 0;
 static volatile sig_atomic_t termsig = 0;
 
 void onchld(int), onterm(int);
+void write_info(struct allinfo *);
+void read_info(struct allinfo *);
 
 int
 main(int argc, char *argv[])
 {
 	bool logging = false;
+	bool status = false;
+
 	char *cmdname = NULL;	/* Extracted from argv or -c arg */
 	char *cmd_fullcmd = NULL;
 	char *log_fullcmd = NULL;
 	int logpipe[2];
 
-	struct fsv fsv;
-	struct proc cmd;
-	struct proc log;
-
-	// fsv = { 0, 0, { 0, 0 }, 0, 0, 0, 0 };
-	fsv.recent_secs = 3600; /* 1 hr */
-	fsv.recent_restarts_max = 2;
-	fsv.timeout = 0;
-
-	/*
-	cmd = { };
-	log = { };
-	*/
+	struct allinfo allinfo;
+	struct fsv *fsv = &allinfo.fsv;
+	/* procs[0] is cmd process, procs[1] is log process */
+	struct proc *procs = allinfo.procs;
+	struct proc *cmd = &procs[0];
+	struct proc *log = &procs[1];
 
 	progname = argv[0];
+
+	*fsv = (struct fsv){
+		.running = true,
+		.pid = getpid(),
+		.since = { 0, 0 },
+		.gaveup = false,
+		.recent_secs = 3600, /* 1 hr */
+		.recent_restarts_max = 2,
+		.timeout = 0
+	};
+	gettimeofday(&fsv->since, NULL);
+
+	for (int i=0; i<2; i++) {
+		procs[i] = (struct proc){
+			.pid = 0,
+			.total_restarts = 0,
+			.recent_restarts = 0,
+			.tv = { 0, 0 },
+			.status = 0
+		};
+	}
 
 #if 0
 	/* Fork to make sure we're not a process group leader. */
@@ -141,9 +169,6 @@ main(int argc, char *argv[])
 	if (getpgid(0) != getpid()) {
 		errx(1, "not a process group leader");
 	}
-
-	fsv.pid = getpid();
-	gettimeofday(&fsv.since, NULL);
 
 	if (pipe(logpipe) == -1)
 		err(EX_OSERR, "cannot make pipe");
@@ -185,7 +210,7 @@ main(int argc, char *argv[])
 	 * Process arguments.
 	 */
 
-	const char *getopt_str = "+chl:n:vV";
+	const char *getopt_str = "+chl:n:qs:vV";
 
 	struct option longopts[] = {
 		{ "cmd",	required_argument,	NULL,		'c' },
@@ -193,6 +218,7 @@ main(int argc, char *argv[])
 		{ "log",	required_argument,	NULL,		'l' },
 		{ "name",	required_argument,	NULL,		'n' },
 		{ "quiet",	no_argument,		NULL,		'q' },
+		{ "status",	required_argument,	NULL,		's' },
 		{ "verbose",	no_argument,		NULL,		'v' },
 		{ "version",	no_argument,		NULL,		'V' },
 		{ NULL,		0,			NULL,		0 }
@@ -218,6 +244,10 @@ main(int argc, char *argv[])
 		case 'q':
 			verbose = false;
 			break;
+		case 's':
+			status = true;
+			cmdname = optarg;
+			break;
 		case 'v':
 			verbose = true;
 			break;
@@ -239,6 +269,9 @@ main(int argc, char *argv[])
 	 * This can be either cmd_fullcmd from -c, or argv, but not both.
 	 * Then populate cmdname if not overridden by -n.
 	 */
+
+	/* TODO2: make this not garbage */
+	if (status != true) {
 
 	if (cmd_fullcmd != NULL) {
 		/* Given via -c. */
@@ -271,6 +304,8 @@ main(int argc, char *argv[])
 			cmdname = argv[0];
 	}
 
+	}
+
 	debug("cmdname is %s\n", cmdname);
 
 	/*
@@ -287,22 +322,47 @@ main(int argc, char *argv[])
 	}
 
 	/*
+	 * Status, if applicable.
+	 */
+
+	/* TODO2 */
+	if (status) {
+		struct allinfo *ai;
+		struct fsv *f;
+		struct proc *c;
+		struct proc *l;
+
+		read_info(ai);
+
+		f = &ai->fsv;
+		c = &ai->procs[0];
+		l = &ai->procs[1];
+
+		printf("status for %s:\n", cmdname);
+		printf("fsv\n");
+		printf("\trunning: %d", f->running);
+		printf("\tpid:     %ld", (long)f->pid);
+		printf("\tsince:   %ld", (long)f->since.tv_sec);
+		printf("\tgaveup:  %d", f->gaveup);
+	}
+
+	/*
 	 * Run log process, if applicable.
 	 */
 
 	if (logging) {
-		gettimeofday(&log.tv, NULL);
+		gettimeofday(&log->tv, NULL);
 		/* TODO1: add flag to control which fd's to pass through the pipe */
-		log.pid = exec_str(log_fullcmd, logpipe[0], -1, -1);
+		log->pid = exec_str(log_fullcmd, logpipe[0], -1, -1);
 
-		debug("started log process (%ld) at %ld\n", log.pid, (long)log.tv.tv_sec);
+		debug("started log process (%ld) at %ld\n", log->pid, (long)log->tv.tv_sec);
 	}
 
 	/*
 	 * Run cmd.
 	 */
 
-	gettimeofday(&cmd.tv, NULL);
+	gettimeofday(&cmd->tv, NULL);
 
 	{
 		int fd0, fd1, fd2;
@@ -317,12 +377,12 @@ main(int argc, char *argv[])
 
 		/* TODO1 */
 		if (argv > 0)
-			cmd.pid = exec_argv(argv, fd0, fd1, fd2);
+			cmd->pid = exec_argv(argv, fd0, fd1, fd2);
 		else
-			cmd.pid = exec_str(cmd_fullcmd, fd0, fd1, fd2);
+			cmd->pid = exec_str(cmd_fullcmd, fd0, fd1, fd2);
 	}
 
-	debug("started cmd process (%ld) at %ld\n", cmd.pid, (long)cmd.tv.tv_sec);
+	debug("started cmd process (%ld) at %ld\n", cmd->pid, (long)cmd->tv.tv_sec);
 
 	/*
 	 * Main loop. Wait for signals, update cmd and log structs when received.
@@ -336,20 +396,50 @@ main(int argc, char *argv[])
 			int wpf = WNOHANG|WCONTINUED|WUNTRACED;
 			pid_t wpid;
 
+			time_t now;
+			struct proc *proc;
+
 			gotchld = 0;
 
 			while ((wpid = waitpid(WAIT_ANY, &status, wpf)) > 0) {
-				if (wpid == cmd.pid) {
-					debug("cmd update:\n");
-					cmd.status = status;
-					// TODO: update `struct proc'
-				} else if (wpid == log.pid) {
-					debug("log update:\n");
-					log.status = status;
-				} else {
+				if (wpid != log->pid && wpid != cmd->pid) {
 					debug("??? unknown child!\n");
 				}
 
+				for (int i=0; i<2; i++) {
+					if (wpid == procs[i].pid) {
+						if (i == 0)
+							debug("cmd exited:\n");
+						else if (i == 1)
+							debug("log exited:\n");
+
+						proc = &procs[i];
+						proc->total_restarts += 1;
+						time(&now);
+
+						if (fsv->recent_secs == 0 ||
+						    ((now - proc->tv.tv_sec) <= fsv->recent_secs)) {
+							// oop
+							proc->recent_restarts += 1;
+						} else {
+							// re
+							proc->recent_restarts = 1;
+						}
+
+						if (proc->recent_restarts >=
+						    fsv->recent_restarts_max) {
+							// TODO
+							// implement timeout if timeout>0
+							fsv->gaveup = true;
+							kill(cmd->pid, SIGTERM);
+							kill(cmd->pid, SIGCONT);
+							kill(log->pid, SIGTERM);
+							kill(log->pid, SIGCONT);
+						}
+					}
+				}
+
+				write_info(&allinfo);
 				print_wstatus(status);
 				debug("\n");
 			}
@@ -380,4 +470,40 @@ void
 onterm(int sig)
 {
 	termsig = sig;
+}
+
+void
+write_info(struct allinfo *ai)
+{
+	int fd;
+	size_t size = sizeof(*ai);
+	ssize_t written;
+
+	/* TODO: kill child procs here? */
+	if ((fd = creat("info.struct", 00666)) == -1)
+		err(EX_CANTCREAT, "cannot create `info.struct'");
+
+	written = write(fd, ai, size);
+	if (written == -1 || written != size)
+		err(EX_OSERR, "write failed");
+
+	close(fd);
+}
+
+void
+read_info(struct allinfo *ai)
+{
+	int fd;
+	size_t size = sizeof(*ai);
+	ssize_t bread;
+
+	/* TODO cleanup */
+	if ((fd = open("info.struct", O_RDONLY)) == -1)
+		err(EX_UNAVAILABLE, "cannot open `info.struct'");
+
+	bread = read(fd, ai, size);
+	if (bread == -1 || bread != size)
+		err(EX_IOERR, "read failed");
+
+	close(fd);
 }
