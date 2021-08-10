@@ -1,7 +1,7 @@
 # Makefile
 
 PROG = fsv
-SRCS = fsv.c proc.c util.c
+SRCS = fsv.c info.c proc.c util.c
 
 CFLAGS += -Wall
 

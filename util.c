@@ -14,9 +14,7 @@
 #include <sysexits.h>
 #include <unistd.h>
 
-extern bool verbose;
-extern const char *progversion;
-extern char *progname;
+#include "extern.h"
 
 void
 debug(char *fmt, ...)

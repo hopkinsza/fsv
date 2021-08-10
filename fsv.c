@@ -1,17 +1,12 @@
 //#define _GNU_SOURCE
 
 #include <sys/time.h>
-#include <sys/types.h> // write_info
-#include <sys/stat.h>  // ^
 #include <sys/wait.h>
 
 #include <err.h>
-#include <fcntl.h>     // ^
 #include <getopt.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h> // status
 #include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
@@ -55,58 +50,13 @@
 bool verbose = true;
 const char *progversion = "0.0.0";
 char *progname;
-/* Process group for supervisor and children */
 pid_t pgrp;
-/* Signal block mask: new and original */
 sigset_t bmask, obmask;
-
-struct fsv {
-	/* Is fsv running, what's the PID, and since when */
-	bool running;
-	pid_t pid;
-	struct timeval since;
-	/*
-	 * Only relevant if not running. True if fsv "gave up" on restarting
-	 * the program because timeout is set to 0 (see next)
-	 */
-	bool gaveup;
-	/*
-	 * The following 3 values are related to the programs being run.
-	 *
-	 * Max amount of seconds before considering this a new string of crashes
-	 *   i.e. resetting recent_restarts to 0 (value of 0 means never);
-	 * How many recent restarts to allow before taking action;
-	 * What action to take:
-	 *   0: stop restarting
-	 *   n: wait n secs before restarting again
-	 */
-	time_t recent_secs;
-	time_t recent_restarts_max;
-	time_t timeout;
-};
-
-struct proc {
-	pid_t pid;
-	unsigned long total_restarts;
-	unsigned long recent_restarts;
-	/* Time of the most recent restart */
-	struct timeval tv;
-	/* If non-zero, most recent exit status as returned by wait(2) */
-	int status;
-};
-
-/* struct to write into a file for outside reference */
-struct allinfo {
-	struct fsv fsv;
-	struct proc procs[2];
-};
 
 static volatile sig_atomic_t gotchld = 0;
 static volatile sig_atomic_t termsig = 0;
 
 void onchld(int), onterm(int);
-void write_info(struct allinfo *);
-void read_info(struct allinfo *);
 
 int
 main(int argc, char *argv[])
@@ -119,10 +69,10 @@ main(int argc, char *argv[])
 	char *log_fullcmd = NULL;
 	int logpipe[2];
 
-	struct allinfo allinfo;
-	struct fsv *fsv = &allinfo.fsv;
+	struct fsv fsv_real;
+	struct fsv *fsv = &fsv_real;
 	/* procs[0] is cmd process, procs[1] is log process */
-	struct proc *procs = allinfo.procs;
+	struct proc procs[2];
 	struct proc *cmd = &procs[0];
 	struct proc *log = &procs[1];
 
@@ -327,23 +277,8 @@ main(int argc, char *argv[])
 
 	/* TODO2 */
 	if (status) {
-		struct allinfo *ai;
-		struct fsv *f;
-		struct proc *c;
-		struct proc *l;
-
-		read_info(ai);
-
-		f = &ai->fsv;
-		c = &ai->procs[0];
-		l = &ai->procs[1];
-
-		printf("status for %s:\n", cmdname);
-		printf("fsv\n");
-		printf("\trunning: %d", f->running);
-		printf("\tpid:     %ld", (long)f->pid);
-		printf("\tsince:   %ld", (long)f->since.tv_sec);
-		printf("\tgaveup:  %d", f->gaveup);
+		/* TODO: ok here? exit after? */
+		print_info(cmdname);
 	}
 
 	/*
@@ -439,7 +374,8 @@ main(int argc, char *argv[])
 					}
 				}
 
-				write_info(&allinfo);
+				/* TODO */
+				//write_info(&allinfo);
 				print_wstatus(status);
 				debug("\n");
 			}
@@ -470,40 +406,4 @@ void
 onterm(int sig)
 {
 	termsig = sig;
-}
-
-void
-write_info(struct allinfo *ai)
-{
-	int fd;
-	size_t size = sizeof(*ai);
-	ssize_t written;
-
-	/* TODO: kill child procs here? */
-	if ((fd = creat("info.struct", 00666)) == -1)
-		err(EX_CANTCREAT, "cannot create `info.struct'");
-
-	written = write(fd, ai, size);
-	if (written == -1 || written != size)
-		err(EX_OSERR, "write failed");
-
-	close(fd);
-}
-
-void
-read_info(struct allinfo *ai)
-{
-	int fd;
-	size_t size = sizeof(*ai);
-	ssize_t bread;
-
-	/* TODO cleanup */
-	if ((fd = open("info.struct", O_RDONLY)) == -1)
-		err(EX_UNAVAILABLE, "cannot open `info.struct'");
-
-	bread = read(fd, ai, size);
-	if (bread == -1 || bread != size)
-		err(EX_IOERR, "read failed");
-
-	close(fd);
 }
