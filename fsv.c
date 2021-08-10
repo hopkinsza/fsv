@@ -277,8 +277,8 @@ main(int argc, char *argv[])
 
 	/* TODO2 */
 	if (status) {
-		/* TODO: ok here? exit after? */
 		print_info(cmdname);
+		exit(0);
 	}
 
 	/*
@@ -375,7 +375,7 @@ main(int argc, char *argv[])
 				}
 
 				/* TODO */
-				//write_info(&allinfo);
+				write_info(*fsv, *cmd, *log, NULL, NULL);
 				print_wstatus(status);
 				debug("\n");
 			}

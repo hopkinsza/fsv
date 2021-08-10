@@ -66,21 +66,35 @@ void print_info(char *cmdname) {
 	struct allinfo ai;
 	read_info(&ai);
 
-	struct fsv  *fsv;
-	struct proc *cmd;
-	struct proc *log;
+	struct fsv fsv;
 
-	fsv = &ai.fsv;
-	cmd = &ai.procs[0];
-	log = &ai.procs[1];
+	fsv = ai.fsv;
 
-	printf("status for %s\n", cmdname);
-	printf("fsv\n");
-	printf("\trunning: %d\n", fsv->running);
-	printf("\tpid:     %ld\n", (long)fsv->pid);
-	printf("\tsince:   %ld\n", (long)fsv->since.tv_sec);
-	printf("\tgaveup:  %d\n", fsv->gaveup);
+	printf("* status for %s\n", cmdname);
 
-	printf("%p\n", cmd);
-	printf("%p\n", log);
+	/* fsv */
+	printf("fsv:\n");
+	printf("\trunning: %d\n",  fsv.running);
+	printf("\tpid:     %ld\n", (long)fsv.pid);
+	printf("\tsince:   %ld\n", (long)fsv.since.tv_sec);
+	printf("\tgaveup:  %d\n",  fsv.gaveup);
+	printf("\trecent_secs:         %ld\n", (long)fsv.recent_secs);
+	printf("\trecent_restarts_max: %ld\n", (long)fsv.recent_restarts_max);
+	printf("\ttimeout:             %ld\n", (long)fsv.timeout);
+
+	/* procs */
+	for (int i=0; i<2; i++) {
+		if (i == 0)
+			printf("cmd:\n");
+		else
+			printf("log:\n");
+
+		struct proc p = ai.procs[i];
+
+		printf("\tpid: %ld\n", (long)p.pid);
+		printf("\ttotal_restarts:  %lu\n", p.total_restarts);
+		printf("\trecent_restarts: %lu\n", p.recent_restarts);
+		printf("\ttv:     %ld\n", (long)p.tv.tv_sec);
+		printf("\tstatus: %d\n",  p.status);
+	}
 }
