@@ -13,11 +13,6 @@
 
 #include "extern.h"
 
-static void mydup2(int oldfd, int newfd);
-
-extern pid_t pgrp;
-extern sigset_t bmask, obmask;
-
 /*
  * Subroutines to fork & exec the log & cmd processes.
  * Fork, reset signal handling, set up STD{IN,OUT,ERR}, and exec.
