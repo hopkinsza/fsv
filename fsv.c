@@ -128,6 +128,10 @@ main(int argc, char *argv[])
 	 * Block signals until ready to catch them.
 	 */
 
+	/* first unblock everything */
+	sigemptyset(&obmask);
+	sigprocmask(SIG_SETMASK, &obmask, NULL);
+
 	sigemptyset(&bmask);
 	sigaddset(&bmask, SIGCHLD);
 	sigaddset(&bmask, SIGINT);
@@ -135,7 +139,7 @@ main(int argc, char *argv[])
 	sigaddset(&bmask, SIGTERM);
 	sigaddset(&bmask, SIGQUIT);
 
-	sigprocmask(SIG_BLOCK, &bmask, &obmask);
+	sigprocmask(SIG_BLOCK, &bmask, NULL);
 
 	/*
 	 * Set handlers.
@@ -345,9 +349,9 @@ main(int argc, char *argv[])
 				for (int i=0; i<2; i++) {
 					if (wpid == procs[i].pid) {
 						if (i == 0)
-							debug("cmd exited:\n");
+							debug("cmd update: ");
 						else if (i == 1)
-							debug("log exited:\n");
+							debug("log update: ");
 
 						proc = &procs[i];
 						proc->total_restarts += 1;
@@ -384,16 +388,7 @@ main(int argc, char *argv[])
 		} else if (termsig) {
 			debug("\ncaught signal %s (%d)\n",
 			    strsignal(termsig), termsig);
-			/*
-			 * Restore default handler, unblock signals, and raise
-			 * it again.
-			 */
-			term_sa.sa_handler = SIG_DFL;
-			sigaction(termsig, &term_sa, NULL);
-			sigprocmask(SIG_UNBLOCK, &bmask, NULL);
-			raise(termsig);
-			/* NOTREACHED */
-			termsig = 0;
+			exitall();
 		}
 	}
 }
