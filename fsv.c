@@ -56,6 +56,7 @@ sigset_t bmask, obmask;
 static volatile sig_atomic_t gotchld = 0;
 static volatile sig_atomic_t termsig = 0;
 
+void run_log(struct proc *, const char *, int[]), run_cmd(struct proc *);
 void onchld(int), onterm(int);
 
 int
@@ -290,11 +291,7 @@ main(int argc, char *argv[])
 	 */
 
 	if (logging) {
-		gettimeofday(&log->tv, NULL);
-		/* TODO1: add flag to control which fd's to pass through the pipe */
-		log->pid = exec_str(log_fullcmd, logpipe[0], -1, -1);
-
-		debug("started log process (%ld) at %ld\n", log->pid, (long)log->tv.tv_sec);
+		run_log(log, log_fullcmd, logpipe);
 	}
 
 	/*
@@ -392,6 +389,17 @@ main(int argc, char *argv[])
 		}
 	}
 }
+
+void
+run_log(struct proc *log, const char *log_fullcmd, int logpipe[])
+{
+	gettimeofday(&log->tv, NULL);
+	/* TODO1: add flag to control which fd's to pass through the pipe */
+	log->pid = exec_str(log_fullcmd, logpipe[0], -1, -1);
+
+	debug("started log process (%ld) at %ld\n", log->pid, (long)log->tv.tv_sec);
+}
+
 
 void
 onchld(int sig)
