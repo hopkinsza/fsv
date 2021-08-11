@@ -76,6 +76,7 @@ void print_wstatus(int);
 void debug(char *fmt, ...);
 void usage();
 void version();
+void exitall();
 int mkcmddir(const char *, const char *);
 
 #endif

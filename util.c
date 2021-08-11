@@ -40,6 +40,34 @@ version()
 }
 
 /*
+ * Send SIGTERM to our process group, then exit.
+ * This should only be used while SIGTERM is ignored in the calling process.
+ */
+void
+exitall()
+{
+	sigset_t cur_bmask;
+	sigprocmask(SIG_BLOCK, NULL, &cur_bmask);
+
+	if (!sigismember(&cur_bmask, SIGTERM)) {
+		/*
+		 * This should never happen, but print a warning and
+		 * do our best if it does.
+		 */
+		warnx("exitall() used incorrectly in source (while SIGTERM is not ignored)");
+		kill(-pgrp, SIGCONT);
+		kill(-pgrp, SIGTERM);
+		/* NOTREACHED */
+		exit(1);
+	}
+
+	kill(-pgrp, SIGTERM);
+	kill(-pgrp, SIGCONT);
+	debug("sent SIGTERM to pgrp, exiting\n");
+	exit(0);
+}
+
+/*
  * This function essentially does the following:
  * mkdir ${prefix}/fsv-${uid}
  * mkdir ${prefix}/fsv-${uid}/${cmddir}

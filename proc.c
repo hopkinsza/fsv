@@ -36,8 +36,8 @@ static void mydup2(int oldfd, int newfd) {
 		return;
 
 	if (dup2(oldfd, newfd) == -1) {
-		warn("dup2(2) failed (sending SIGTERM)");
-		kill(-pgrp, SIGTERM);
+		warn("dup2(2) failed");
+		exitall();
 	}
 }
 pid_t exec_str(const char *str, int in, int out, int err) {
@@ -48,8 +48,8 @@ pid_t exec_str(const char *str, int in, int out, int err) {
 
 	switch(pid = fork()) {
 	case -1:
-		warn("cannot fork (sending SIGTERM)");
-		kill(-pgrp, SIGTERM);
+		warn("fork(2) failed");
+		exitall();
 		break;
 	case 0:
 		sigprocmask(SIG_SETMASK, &obmask, NULL);
@@ -69,8 +69,8 @@ pid_t exec_str(const char *str, int in, int out, int err) {
 		strcat(command, str);
 
 		if (execl("/bin/sh", "sh", "-c", command, (char *)NULL) == -1) {
-			warn("exec `%s' failed (sending SIGTERM)", str);
-			kill(-pgrp, SIGTERM);
+			warn("exec `%s' failed", str);
+			exitall();
 		}
 		break;
 	}
@@ -81,8 +81,8 @@ pid_t exec_argv(char *argv[], int in, int out, int err) {
 
 	switch(pid = fork()) {
 	case -1:
-		warn("cannot fork (sending SIGTERM)");
-		kill(-pgrp, SIGTERM);
+		warn("fork(2) failed");
+		exitall();
 		break;
 	case 0:
 		sigprocmask(SIG_SETMASK, &obmask, NULL);
@@ -92,8 +92,8 @@ pid_t exec_argv(char *argv[], int in, int out, int err) {
 		mydup2(err, 2);
 
 		if (execvp(argv[0], argv) == -1) {
-			warn("exec `%s' failed (sending SIGTERM)", argv[0]);
-			kill(-pgrp, SIGTERM);
+			warn("exec `%s' failed", argv[0]);
+			exitall();
 		}
 		break;
 	}
