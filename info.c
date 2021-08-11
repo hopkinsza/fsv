@@ -95,6 +95,8 @@ void print_info(char *cmdname) {
 		printf("\ttotal_restarts:  %lu\n", p.total_restarts);
 		printf("\trecent_restarts: %lu\n", p.recent_restarts);
 		printf("\ttv:     %ld\n", (long)p.tv.tv_sec);
-		printf("\tstatus: %d\n",  p.status);
+		/* dprintf due to apparent text buffering weirdness */
+		dprintf(1, "\tstatus: ");
+		dprint_wstatus(1, p.status);
 	}
 }

@@ -7,6 +7,7 @@
 #include <err.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -96,28 +97,29 @@ pid_t exec_argv(char *argv[], int in, int out, int err) {
 }
 
 /*
- * Print out some updates given the status updated from wait(2).
+ * Print out some updates given the status updated from wait(2)
+ * into the designated file descriptor.
  */
 void
-print_wstatus(int status)
+dprint_wstatus(int fd, int status)
 {
 	/* Signal that the child received, if applicable. */
 	int csig;
 
 	if (WIFEXITED(status)) {
-		debug("exited %d\n", WEXITSTATUS(status));
+		dprintf(fd, "exited %d\n", WEXITSTATUS(status));
 	} else if (WIFSIGNALED(status)) {
 		csig = WTERMSIG(status);
-		debug("terminated by signal: %s (%d)",
+		dprintf(fd, "terminated by signal: %s (%d)",
 		    strsignal(csig), csig);
 		if (WCOREDUMP(status))
-			debug(", dumped core");
-		debug("\n");
+			dprintf(fd, ", dumped core");
+		dprintf(fd, "\n");
 	} else if (WIFSTOPPED(status)) {
 		csig = WSTOPSIG(status);
-		debug("stopped by signal: %s (%d)\n",
+		dprintf(fd, "stopped by signal: %s (%d)\n",
 		    strsignal(csig), csig);
 	} else if (WIFCONTINUED(status)) {
-		debug("continued\n");
+		dprintf(fd, "continued\n");
 	}
 }

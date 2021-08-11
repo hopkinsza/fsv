@@ -379,7 +379,7 @@ main(int argc, char *argv[])
 
 				/* TODO actually restart */
 				write_info(*fsv, *cmd, *log, NULL, NULL);
-				print_wstatus(status);
+				dprint_wstatus(2, status);
 				debug("\n");
 			}
 		} else if (termsig) {
