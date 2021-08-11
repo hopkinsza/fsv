@@ -11,7 +11,7 @@ CFLAGS += -Wall
 $(PROG): $(SRCS)
 
 $(SRCS): extern.h
-	@echo "extern.h updated: touch \`$@'"
+	@echo "extern.h updated: touch $@"
 	@touch $@
 
 clean:
