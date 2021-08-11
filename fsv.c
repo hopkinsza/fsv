@@ -116,6 +116,7 @@ main(int argc, char *argv[])
 		err(EX_OSERR, "cannot setsid(2)");
 #endif
 
+	pgrp = getpid();
 	if (getpgid(0) != getpid()) {
 		errx(1, "not a process group leader");
 	}
@@ -220,7 +221,7 @@ main(int argc, char *argv[])
 	 * Then populate cmdname if not overridden by -n.
 	 */
 
-	/* TODO2: make this not garbage */
+	/* this could be cleaner */
 	if (status != true) {
 
 	if (cmd_fullcmd != NULL) {
@@ -275,7 +276,6 @@ main(int argc, char *argv[])
 	 * Status, if applicable.
 	 */
 
-	/* TODO2 */
 	if (status) {
 		print_info(cmdname);
 		exit(0);
@@ -338,6 +338,7 @@ main(int argc, char *argv[])
 
 			while ((wpid = waitpid(WAIT_ANY, &status, wpf)) > 0) {
 				if (wpid != log->pid && wpid != cmd->pid) {
+					/* should never happen */
 					debug("??? unknown child!\n");
 				}
 
@@ -357,12 +358,13 @@ main(int argc, char *argv[])
 							// oop
 							proc->recent_restarts += 1;
 						} else {
-							// re
+							// reset counter
 							proc->recent_restarts = 1;
 						}
 
 						if (proc->recent_restarts >=
 						    fsv->recent_restarts_max) {
+							/* Max restarts reached. */
 							// TODO
 							// implement timeout if timeout>0
 							fsv->gaveup = true;
@@ -374,7 +376,7 @@ main(int argc, char *argv[])
 					}
 				}
 
-				/* TODO */
+				/* TODO actually restart */
 				write_info(*fsv, *cmd, *log, NULL, NULL);
 				print_wstatus(status);
 				debug("\n");
