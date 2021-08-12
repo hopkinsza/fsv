@@ -169,15 +169,15 @@ main(int argc, char *argv[])
 	const char *getopt_str = "+c:hl:n:qs:vV";
 
 	struct option longopts[] = {
-		{ "cmd",	required_argument,	NULL,		'c' },
-		{ "help",	no_argument,		NULL,		'h' },
-		{ "log",	required_argument,	NULL,		'l' },
-		{ "name",	required_argument,	NULL,		'n' },
-		{ "quiet",	no_argument,		NULL,		'q' },
-		{ "status",	required_argument,	NULL,		's' },
-		{ "verbose",	no_argument,		NULL,		'v' },
-		{ "version",	no_argument,		NULL,		'V' },
-		{ NULL,		0,			NULL,		0 }
+		{ "cmd",	required_argument,	NULL,	'c' },
+		{ "help",	no_argument,		NULL,	'h' },
+		{ "log",	required_argument,	NULL,	'l' },
+		{ "name",	required_argument,	NULL,	'n' },
+		{ "quiet",	no_argument,		NULL,	'q' },
+		{ "status",	required_argument,	NULL,	's' },
+		{ "verbose",	no_argument,		NULL,	'v' },
+		{ "version",	no_argument,		NULL,	'V' },
+		{ NULL,		0,			NULL,	0 }
 	};
 
 	int ch;
