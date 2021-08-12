@@ -64,7 +64,6 @@ int
 main(int argc, char *argv[])
 {
 	bool logging = false;
-	bool status = false;
 
 	char *cmdname = NULL;	/* Extracted from argv or -c arg */
 	char *cmd_fullcmd = NULL;
@@ -202,8 +201,9 @@ main(int argc, char *argv[])
 			verbose = false;
 			break;
 		case 's':
-			status = true;
 			cmdname = optarg;
+			cd_to_cmddir(cmdname, 0);
+			print_info(cmdname); exit(0);
 			break;
 		case 'v':
 			verbose = true;
@@ -226,9 +226,6 @@ main(int argc, char *argv[])
 	 * This can be either cmd_fullcmd from -c, or argv, but not both.
 	 * Then populate cmdname if not overridden by -n.
 	 */
-
-	/* this could be cleaner */
-	if (status != true) {
 
 	if (cmd_fullcmd != NULL) {
 		/* Given via -c. */
@@ -261,28 +258,13 @@ main(int argc, char *argv[])
 			cmdname = argv[0];
 	}
 
-	}
-
 	debug("cmdname is %s\n", cmdname);
 
 	/*
 	 * cd to cmddir, creating if necessary.
 	 */
 
-	if (!status) {
-		cd_to_cmddir(cmdname, 1);
-	} else {
-		cd_to_cmddir(cmdname, 0);
-	}
-
-	/*
-	 * Status, if applicable.
-	 */
-
-	if (status) {
-		print_info(cmdname);
-		exit(0);
-	}
+	cd_to_cmddir(cmdname, 1);
 
 	/*
 	 * Run log process, if applicable.
