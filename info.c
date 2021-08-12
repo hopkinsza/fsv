@@ -63,11 +63,13 @@ void write_info(struct fsv fsv, struct proc cmd, struct proc log,
 }
 
 void print_info(char *cmdname) {
+	enum { BS = 64 };
+	char buf[BS];
+
 	struct allinfo ai;
 	read_info(&ai);
 
 	struct fsv fsv;
-
 	fsv = ai.fsv;
 
 	printf("* status for %s\n", cmdname);
@@ -76,7 +78,12 @@ void print_info(char *cmdname) {
 	printf("fsv:\n");
 	printf("\trunning: %d\n",  fsv.running);
 	printf("\tpid:     %ld\n", (long)fsv.pid);
-	printf("\tsince:   %ld\n", (long)fsv.since.tv_sec);
+	printf("\tsince:   ");
+	strftime(buf, BS, FSV_DATETIME_FMT, localtime(&fsv.since.tv_sec));
+	printf("%s\n", buf);
+	strftime(buf, BS, "%F %T %Z", gmtime(&fsv.since.tv_sec));
+	printf("\t         %s\n", buf);
+	printf("\t         %ld\n", (long)fsv.since.tv_sec);
 	printf("\tgaveup:  %d\n",  fsv.gaveup);
 	printf("\trecent_secs:         %ld\n", (long)fsv.recent_secs);
 	printf("\trecent_restarts_max: %ld\n", (long)fsv.recent_restarts_max);

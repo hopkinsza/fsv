@@ -5,6 +5,17 @@
 #ifndef _EXTERN_H_
 #define _EXTERN_H_
 
+/*
+ * In the US, local time is typically in AM/PM format,
+ * but the %X strftime(3) conversion specifier uses 24-hour time in this locale.
+ * Set this to "%F %X %Z" if you want the "preferred" time representation for
+ * your locale,
+ * or even "%c" if you want the "preferred" time AND date representation.
+ */
+#ifndef FSV_DATETIME_FMT
+#define FSV_DATETIME_FMT "%F %r %Z"
+#endif
+
 #include <stdbool.h>
 #include <signal.h>
 #include <time.h>
