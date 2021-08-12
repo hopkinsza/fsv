@@ -64,6 +64,7 @@ pid_t exec_str(const char *str, int in, int out, int err) {
 		strcpy(command, "exec ");
 		strcat(command, str);
 
+		debug("forked to process %ld, about to exec cmd_fullcmd\n", (long)getpid());
 		if (execl("/bin/sh", "sh", "-c", command, (char *)NULL) == -1) {
 			warn("exec `%s' failed", str);
 			exitall();

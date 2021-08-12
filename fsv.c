@@ -312,10 +312,13 @@ main(int argc, char *argv[])
 		}
 
 		/* TODO1 */
-		if (argv > 0)
+		if (argc > 0) {
+			debug("running exec_argv\n");
 			cmd->pid = exec_argv(argv, fd0, fd1, fd2);
-		else
+		} else {
+			debug("running exec_str\n");
 			cmd->pid = exec_str(cmd_fullcmd, fd0, fd1, fd2);
+		}
 	}
 
 	debug("started cmd process (%ld) at %ld\n", cmd->pid, (long)cmd->tv.tv_sec);
