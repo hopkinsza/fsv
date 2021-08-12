@@ -166,7 +166,7 @@ main(int argc, char *argv[])
 	 * Process arguments.
 	 */
 
-	const char *getopt_str = "+chl:n:qs:vV";
+	const char *getopt_str = "+c:hl:n:qs:vV";
 
 	struct option longopts[] = {
 		{ "cmd",	required_argument,	NULL,		'c' },
