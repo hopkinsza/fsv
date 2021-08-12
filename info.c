@@ -72,7 +72,7 @@ void print_info(char *cmdname) {
 	struct fsv fsv;
 	fsv = ai.fsv;
 
-	printf("* status for %s\n", cmdname);
+	printf("status for %s\n", cmdname);
 
 	/* fsv */
 	printf("fsv:\n");
