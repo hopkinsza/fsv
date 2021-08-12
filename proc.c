@@ -36,11 +36,15 @@ static void mydup2(int oldfd, int newfd) {
 		exitall();
 	}
 }
-pid_t exec_str(const char *str, int in, int out, int err) {
-	/* TODO: execl the shell to process str */
+pid_t exec_str(const char *const str, int in, int out, int err) {
+	char *c;
+	enum { BS = 32 };
+	char *argv[BS];
 	pid_t pid;
-	size_t l;
-	char *command;
+
+	for (int i=0; i<BS; i++) {
+		argv[i] = NULL;
+	}
 
 	switch(pid = fork()) {
 	case -1:
@@ -54,6 +58,72 @@ pid_t exec_str(const char *str, int in, int out, int err) {
 		mydup2(out, 1);
 		mydup2(err, 2);
 
+		/*
+		 * Convert a copy of the string into an argv...
+		 */
+
+		c = malloc(strlen(str) + 1);
+		strcpy(c, str);
+
+		bool done = false;
+		// bool escaping = false;
+		// bool inquotes = false;
+		argv[0] = c;
+		for (int i=0; i<BS; i++) {
+			while (1) {
+				if (*c == '\0') {
+					done = true;
+					break;
+				}
+				while (*c == ' ') {
+					*c = '\0';
+					c++;
+				}
+
+				if (*c != '"' && *c != '\0') {
+					/* lovely, simple, normal argument */
+					argv[i] = c;
+					while (*c != '\0' && *c != ' ')
+						c++;
+					break;
+				} else {
+					/* double-quoted argument */
+					c++;
+					argv[i] = c;
+					while (*c != '\0' && *c != '"')
+						c++;
+					if (*c == '\0') {
+						warn("unmatched double-quote");
+						exitall();
+					} else if (*c == '"') {
+						*c = '\0';
+						c++;
+					}
+					break;
+				}
+
+			}
+			if (done)
+				break;
+		}
+
+		if (!done) {
+			warn("too many words in cmd or log");
+			exitall();
+		}
+
+		/*
+		 * And exec it.
+		 */
+
+		if (execvp(argv[0], argv) == -1) {
+			warn("exec `%s' failed", argv[0]);
+			exitall();
+		}
+
+		break;
+
+#if 0
 		/*
 		 * Allocate buffer to hold the additional 5 bytes `exec '.
 		 * strcpy(3) and strcat(3) should be ok here.
@@ -69,6 +139,7 @@ pid_t exec_str(const char *str, int in, int out, int err) {
 			exitall();
 		}
 		break;
+#endif
 	}
 	return pid;
 }

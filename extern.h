@@ -84,7 +84,7 @@ void print_info(char *);
  * proc.c
  */
 
-pid_t exec_str(const char *, int, int, int);
+pid_t exec_str(const char *const, int, int, int);
 pid_t exec_argv(char *[], int, int, int);
 void dprint_wstatus(int, int);
 

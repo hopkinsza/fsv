@@ -85,7 +85,7 @@ main(int argc, char *argv[])
 		.since = { 0, 0 },
 		.gaveup = false,
 		.recent_secs = 3600, /* 1 hr */
-		.recent_restarts_max = 2,
+		.recent_restarts_max = 4,
 		.timeout = 0
 	};
 	gettimeofday(&fsv->since, NULL);
@@ -353,8 +353,8 @@ main(int argc, char *argv[])
 
 					if (i == 0) {
 						/* restart cmd */
-						run_cmd(cmd, logpipe,cmd_fullcmd, logging,
-							argc, argv);
+						run_cmd(cmd, logpipe, cmd_fullcmd,
+							logging, argc, argv);
 					} else if (i == 1) {
 						/* restart log */
 						run_log(log, logpipe, log_fullcmd);
