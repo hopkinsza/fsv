@@ -282,71 +282,92 @@ main(int argc, char *argv[])
 
 	/*
 	 * Main loop. Wait for signals, update cmd and log structs when received.
+	 * Not indented because it was getting cramped.
 	 */
 
 	for (;;) {
-		sigsuspend(&obmask);
-		if (gotchld) {
-			int status;
-			/* waitpid(2) flags */
-			int wpf = WNOHANG|WCONTINUED|WUNTRACED;
-			pid_t wpid;
 
-			time_t now;
-			struct proc *proc;
+	sigsuspend(&obmask);
+	if (gotchld) {
+		int status;
+		/* waitpid(2) flags */
+		int wpf = WNOHANG|WCONTINUED|WUNTRACED;
+		pid_t wpid;
 
-			gotchld = 0;
+		time_t now;
+		struct proc *proc;
 
-			while ((wpid = waitpid(WAIT_ANY, &status, wpf)) > 0) {
-				if (wpid != log->pid && wpid != cmd->pid) {
-					/* should never happen */
-					debug("??? unknown child!\n");
-				}
+		gotchld = 0;
 
-				for (int i=0; i<2; i++) {
-					if (wpid == procs[i].pid) {
-						if (i == 0)
-							debug("cmd update: ");
-						else if (i == 1)
-							debug("log update: ");
+		while ((wpid = waitpid(WAIT_ANY, &status, wpf)) > 0) {
+			if (wpid != log->pid && wpid != cmd->pid) {
+				/* should never happen */
+				debug("??? unknown child!\n");
+			}
 
-						proc = &procs[i];
-						proc->total_restarts += 1;
-						time(&now);
+			for (int i=0; i<2; i++) {
+				if (wpid == procs[i].pid) {
+					const char *procname;
 
-						if (fsv->recent_secs == 0 ||
-						    ((now - proc->tv.tv_sec) <= fsv->recent_secs)) {
-							// oop
-							proc->recent_restarts += 1;
-						} else {
-							// reset counter
-							proc->recent_restarts = 1;
-						}
+					if (i == 0)
+						procname = "cmd";
+					else if (i == 1)
+						procname = "log";
 
-						if (proc->recent_restarts >=
-						    fsv->recent_restarts_max) {
-							/* Max restarts reached. */
-							// TODO
-							// implement timeout if timeout>0
+					debug("%s update: ", procname);
+					dprint_wstatus(2, status);
+
+					proc = &procs[i];
+					proc->status = status;
+					proc->total_restarts += 1;
+					time(&now);
+
+					if (fsv->recent_secs == 0 ||
+					    ((now - proc->tv.tv_sec) <= fsv->recent_secs)) {
+						proc->recent_restarts += 1;
+					} else {
+						proc->recent_restarts = 1;
+					}
+
+					write_info(*fsv, *cmd, *log, NULL, NULL);
+
+					if (proc->recent_restarts >=
+					    fsv->recent_restarts_max) {
+						/* Max restarts reached. */
+						debug("recent_restarts_max (%lu) reached for %s,",
+						    fsv->recent_restarts_max, procname);
+						if (fsv->timeout == 0) {
+							debug(" exiting\n");
 							fsv->gaveup = true;
-							kill(cmd->pid, SIGTERM);
-							kill(cmd->pid, SIGCONT);
-							kill(log->pid, SIGTERM);
-							kill(log->pid, SIGCONT);
+							write_info(*fsv, *cmd, *log, NULL, NULL);
+							exitall();
+						} else {
+							debug(" sleeping for %d secs\n",
+							    fsv->timeout);
+							struct timespec ts;
+							ts.tv_sec = fsv->timeout;
+							ts.tv_nsec = 0;
+							nanosleep(&ts, NULL);
 						}
 					}
-				}
 
-				/* TODO actually restart */
-				write_info(*fsv, *cmd, *log, NULL, NULL);
-				dprint_wstatus(2, status);
-				debug("\n");
+					if (i == 0) {
+						/* restart cmd */
+						run_cmd(cmd, logpipe,cmd_fullcmd, logging,
+							argc, argv);
+					} else if (i == 1) {
+						/* restart log */
+						run_log(log, logpipe, log_fullcmd);
+					}
+				}
 			}
-		} else if (termsig) {
-			debug("\ncaught signal %s (%d)\n",
-			    strsignal(termsig), termsig);
-			exitall();
 		}
+	} else if (termsig) {
+		debug("\ncaught signal %s (%d)\n",
+		    strsignal(termsig), termsig);
+		exitall();
+	}
+
 	}
 }
 

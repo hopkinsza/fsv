@@ -41,11 +41,11 @@ version()
 }
 
 /*
- * Send SIGTERM to our process group, then exit.
+ * Send SIGTERM to our process group.
  * This should only be used while SIGTERM is ignored in the calling process.
  */
 void
-exitall()
+termpgrp()
 {
 	sigset_t cur_bmask;
 	sigprocmask(SIG_BLOCK, NULL, &cur_bmask);
@@ -64,6 +64,15 @@ exitall()
 
 	kill(-pgrp, SIGTERM);
 	kill(-pgrp, SIGCONT);
+}
+
+/*
+ * Call termpgrp(), then exit.
+ */
+void
+exitall()
+{
+	termpgrp();
 	debug("sent SIGTERM to pgrp, exiting\n");
 	exit(0);
 }

@@ -58,7 +58,7 @@ struct fsv {
 	 *   n: wait n secs before restarting again
 	 */
 	time_t recent_secs;
-	time_t recent_restarts_max;
+	unsigned long recent_restarts_max;
 	time_t timeout;
 };
 
@@ -95,6 +95,7 @@ void dprint_wstatus(int, int);
 void debug(char *fmt, ...);
 void usage();
 void version();
+void termpgrp();
 void exitall();
 void cd_to_cmddir(const char *cmddir, int create);
 
