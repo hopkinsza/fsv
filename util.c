@@ -68,22 +68,15 @@ exitall()
 	exit(0);
 }
 
-/*
- * This function essentially does the following:
- * mkdir ${prefix}/fsv-${uid}
- * mkdir ${prefix}/fsv-${uid}/${cmddir}
- *
- * Returns fd to the new cmddir.
- */
-int
-mkcmddir(const char *cmddir, const char *prefix)
+void
+cd_to_cmddir(const char *cmddir, int create)
 {
-	int fd_prefix;
-	int fd_fsvdir;
-	int fd_cmddir;
 	char fsvdir[32];
 
-	/* build name of fsvdir */
+	/*
+	 * Build name of fsvdir -- fsv-${uid}.
+	 */
+
 	int l;
 	l = snprintf(fsvdir, sizeof(fsvdir), "fsv-%ld", (long)geteuid());
 	if (l < 0) {
@@ -93,39 +86,48 @@ mkcmddir(const char *cmddir, const char *prefix)
 		errx(EX_SOFTWARE, "snprintf: fsvdir too long");
 	}
 
-	/* open $prefix */
-	if ((fd_prefix = open(prefix, O_RDONLY|O_DIRECTORY)) == -1)
-		err(EX_OSFILE, "can't open `%s'", prefix);
+	/*
+	 * cd to FSV_CMDDIR_PREFIX.
+	 */
 
-	/* mkdir $prefix/fsv-$uid */
-	if (mkdirat(fd_prefix, fsvdir, 00777) == -1) {
-		switch (errno) {
-		case EEXIST:
-			/* already exists, ok */
-			break;
-		default:
-			err(EX_IOERR, "can't mkdir `%s/%s'", prefix, fsvdir);
+	if (chdir(FSV_CMDDIR_PREFIX) == -1)
+		err(EX_OSFILE, "chdir to `%s' failed", FSV_CMDDIR_PREFIX);
+
+	/*
+	 * mkdir $fsvdir if necessary, cd to it.
+	 */
+
+	if (create) {
+		if (mkdir(fsvdir, 00777) == -1) {
+			switch (errno) {
+			case EEXIST:
+				/* already exists, ok */
+				break;
+			default:
+				err(EX_IOERR, "mkdir `%s/%s' failed",
+				    FSV_CMDDIR_PREFIX, fsvdir);
+			}
 		}
 	}
-	if ((fd_fsvdir = openat(fd_prefix, fsvdir, O_RDONLY|O_DIRECTORY)) == -1)
-		err(EX_IOERR, "can't open `%s/%s' as directory", prefix, fsvdir);
+	if (chdir(fsvdir) == -1)
+		err(EX_IOERR, "chdir to `%s/%s' failed", FSV_CMDDIR_PREFIX, fsvdir);
 
-	close(fd_prefix);
-
-	/* mkdir $prefix/fsv-$uid/$cmddir */
-	if ((mkdirat(fd_fsvdir, cmddir, 00777)) == -1) {
-		switch (errno) {
-		case EEXIST:
-			/* already exists, ok */
-			break;
-		default:
-			err(EX_IOERR, "can't mkdir `%s/%s/%s'", prefix, fsvdir, cmddir);
+	/*
+	 * mkdir $cmddir if necessary, cd to it.
+	 */
+	if (create) {
+		if (mkdir(cmddir, 00777) == -1) {
+			switch (errno) {
+			case EEXIST:
+				/* already exists, ok */
+				break;
+			default:
+				err(EX_IOERR, "mkdir `%s/%s/%s' failed",
+				    FSV_CMDDIR_PREFIX, fsvdir, cmddir);
+			}
 		}
 	}
-	if ((fd_cmddir = openat(fd_fsvdir, cmddir, O_RDONLY|O_DIRECTORY)) == -1)
-		err(EX_IOERR, "can't open `%s/%s/%s' as directory", prefix, fsvdir, prefix);
-
-	close(fd_fsvdir);
-
-	return fd_cmddir;
+	if (chdir(cmddir) == -1)
+		err(EX_IOERR, "chdir to `%s/%s/%s' failed",
+		    FSV_CMDDIR_PREFIX, fsvdir, cmddir);
 }

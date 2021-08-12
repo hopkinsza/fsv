@@ -16,6 +16,14 @@
 #define FSV_DATETIME_FMT "%F %r %Z"
 #endif
 
+/*
+ * The prefix to keep state information under.
+ * This should be a "sticky" directory.
+ */
+#ifndef FSV_CMDDIR_PREFIX
+#define FSV_CMDDIR_PREFIX "/var/tmp"
+#endif
+
 #include <stdbool.h>
 #include <signal.h>
 #include <time.h>
@@ -88,6 +96,6 @@ void debug(char *fmt, ...);
 void usage();
 void version();
 void exitall();
-int mkcmddir(const char *, const char *);
+void cd_to_cmddir(const char *cmddir, int create);
 
 #endif

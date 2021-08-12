@@ -266,16 +266,13 @@ main(int argc, char *argv[])
 	debug("cmdname is %s\n", cmdname);
 
 	/*
-	 * Make cmddir and chdir to it.
+	 * cd to cmddir, creating if necessary.
 	 */
 
-	{
-		const char *prefix = "/var/tmp";
-		int cmddir_fd;
-
-		cmddir_fd = mkcmddir(cmdname, prefix);
-		fchdir(cmddir_fd);
-		close(cmddir_fd);
+	if (!status) {
+		cd_to_cmddir(cmdname, 1);
+	} else {
+		cd_to_cmddir(cmdname, 0);
 	}
 
 	/*
@@ -390,10 +387,8 @@ run_cmd(struct proc *cmd, int logpipe[], const char *cmd_fullcmd, bool logging,
 
 	/* TODO1 */
 	if (argc > 0) {
-		debug("running exec_argv\n");
 		cmd->pid = exec_argv(argv, fd0, fd1, fd2);
 	} else {
-		debug("running exec_str\n");
 		cmd->pid = exec_str(cmd_fullcmd, fd0, fd1, fd2);
 	}
 
