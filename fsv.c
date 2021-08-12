@@ -56,7 +56,8 @@ sigset_t bmask, obmask;
 static volatile sig_atomic_t gotchld = 0;
 static volatile sig_atomic_t termsig = 0;
 
-void run_log(struct proc *, const char *, int[]), run_cmd(struct proc *);
+void run_cmd(struct proc *, int[], const char *, bool, int, char *[]);
+void run_log(struct proc *, int[], const char *);
 void onchld(int), onterm(int);
 
 int
@@ -291,37 +292,14 @@ main(int argc, char *argv[])
 	 */
 
 	if (logging) {
-		run_log(log, log_fullcmd, logpipe);
+		run_log(log, logpipe, log_fullcmd);
 	}
 
 	/*
 	 * Run cmd.
 	 */
 
-	gettimeofday(&cmd->tv, NULL);
-
-	{
-		int fd0, fd1, fd2;
-		fd0 = -1;
-		if (logging) {
-			fd1 = logpipe[1];
-			fd2 = logpipe[1];
-		} else {
-			fd1 = -1;
-			fd2 = -1;
-		}
-
-		/* TODO1 */
-		if (argc > 0) {
-			debug("running exec_argv\n");
-			cmd->pid = exec_argv(argv, fd0, fd1, fd2);
-		} else {
-			debug("running exec_str\n");
-			cmd->pid = exec_str(cmd_fullcmd, fd0, fd1, fd2);
-		}
-	}
-
-	debug("started cmd process (%ld) at %ld\n", cmd->pid, (long)cmd->tv.tv_sec);
+	run_cmd(cmd, logpipe, cmd_fullcmd, logging, argc, argv);
 
 	/*
 	 * Main loop. Wait for signals, update cmd and log structs when received.
@@ -394,7 +372,38 @@ main(int argc, char *argv[])
 }
 
 void
-run_log(struct proc *log, const char *log_fullcmd, int logpipe[])
+run_cmd(struct proc *cmd, int logpipe[], const char *cmd_fullcmd, bool logging,
+	int argc, char *argv[])
+{
+	int fd0, fd1, fd2;
+
+	gettimeofday(&cmd->tv, NULL);
+
+	fd0 = -1;
+	if (logging) {
+		fd1 = logpipe[1];
+		fd2 = logpipe[1];
+	} else {
+		fd1 = -1;
+		fd2 = -1;
+	}
+
+	/* TODO1 */
+	if (argc > 0) {
+		debug("running exec_argv\n");
+		cmd->pid = exec_argv(argv, fd0, fd1, fd2);
+	} else {
+		debug("running exec_str\n");
+		cmd->pid = exec_str(cmd_fullcmd, fd0, fd1, fd2);
+	}
+
+	debug("started cmd process (%ld) at %ld\n", cmd->pid, (long)cmd->tv.tv_sec);
+
+
+}
+
+void
+run_log(struct proc *log, int logpipe[], const char *log_fullcmd)
 {
 	gettimeofday(&log->tv, NULL);
 	/* TODO1: add flag to control which fd's to pass through the pipe */
@@ -402,7 +411,6 @@ run_log(struct proc *log, const char *log_fullcmd, int logpipe[])
 
 	debug("started log process (%ld) at %ld\n", log->pid, (long)log->tv.tv_sec);
 }
-
 
 void
 onchld(int sig)
