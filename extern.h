@@ -6,6 +6,14 @@
 #define _EXTERN_H_
 
 /*
+ * The prefix to keep state information under.
+ * This should be a "sticky" directory.
+ */
+#ifndef FSV_CMDDIR_PREFIX
+#define FSV_CMDDIR_PREFIX "/var/tmp"
+#endif
+
+/*
  * In the US, local time is typically in AM/PM format,
  * but the %X strftime(3) conversion specifier uses 24-hour time in this locale.
  * Set this to "%F %X %Z" if you want the "preferred" time representation for
@@ -14,14 +22,6 @@
  */
 #ifndef FSV_DATETIME_FMT
 #define FSV_DATETIME_FMT "%F %r %Z"
-#endif
-
-/*
- * The prefix to keep state information under.
- * This should be a "sticky" directory.
- */
-#ifndef FSV_CMDDIR_PREFIX
-#define FSV_CMDDIR_PREFIX "/var/tmp"
 #endif
 
 #include <stdbool.h>
