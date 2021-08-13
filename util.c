@@ -55,7 +55,7 @@ termpgrp()
 		 * This should never happen, but print a warning and
 		 * do our best if it does.
 		 */
-		warnx("exitall() used incorrectly in source (while SIGTERM is not ignored)");
+		warnx("termpgrp() used incorrectly in source (while SIGTERM is not ignored)");
 		kill(-pgrp, SIGCONT);
 		kill(-pgrp, SIGTERM);
 		/* NOTREACHED */
@@ -70,11 +70,11 @@ termpgrp()
  * Call termpgrp(), then exit.
  */
 void
-exitall()
+exitall(int status)
 {
 	termpgrp();
 	debug("sent SIGTERM to pgrp, exiting\n");
-	exit(0);
+	exit(status);
 }
 
 void

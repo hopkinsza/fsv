@@ -340,7 +340,7 @@ main(int argc, char *argv[])
 							debug(" exiting\n");
 							fsv->gaveup = true;
 							write_info(*fsv, *cmd, *log, NULL, NULL);
-							exitall();
+							exitall(0);
 						} else {
 							debug(" sleeping for %d secs\n",
 							    fsv->timeout);
@@ -365,7 +365,7 @@ main(int argc, char *argv[])
 	} else if (termsig) {
 		debug("\ncaught signal %s (%d)\n",
 		    strsignal(termsig), termsig);
-		exitall();
+		exitall(EX_OSERR);
 	}
 
 	}

@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 #include <unistd.h>
 
 #include "extern.h"
@@ -33,7 +34,7 @@ static void mydup2(int oldfd, int newfd) {
 
 	if (dup2(oldfd, newfd) == -1) {
 		warn("dup2(2) failed");
-		exitall();
+		exitall(EX_OSERR);
 	}
 }
 pid_t exec_str(const char *const str, int in, int out, int err) {
@@ -49,7 +50,7 @@ pid_t exec_str(const char *const str, int in, int out, int err) {
 	switch(pid = fork()) {
 	case -1:
 		warn("fork(2) failed");
-		exitall();
+		exitall(EX_OSERR);
 		break;
 	case 0:
 		sigprocmask(SIG_SETMASK, &obmask, NULL);
@@ -94,7 +95,7 @@ pid_t exec_str(const char *const str, int in, int out, int err) {
 						c++;
 					if (*c == '\0') {
 						warn("unmatched double-quote");
-						exitall();
+						exitall(EX_DATAERR);
 					} else if (*c == '"') {
 						*c = '\0';
 						c++;
@@ -109,7 +110,7 @@ pid_t exec_str(const char *const str, int in, int out, int err) {
 
 		if (!done) {
 			warn("too many words in cmd or log");
-			exitall();
+			exitall(EX_SOFTWARE);
 		}
 
 		/*
@@ -118,7 +119,7 @@ pid_t exec_str(const char *const str, int in, int out, int err) {
 
 		if (execvp(argv[0], argv) == -1) {
 			warn("exec `%s' failed", argv[0]);
-			exitall();
+			exitall(EX_OSERR);
 		}
 
 		break;
@@ -149,7 +150,7 @@ pid_t exec_argv(char *argv[], int in, int out, int err) {
 	switch(pid = fork()) {
 	case -1:
 		warn("fork(2) failed");
-		exitall();
+		exitall(EX_OSERR);
 		break;
 	case 0:
 		sigprocmask(SIG_SETMASK, &obmask, NULL);
@@ -160,7 +161,7 @@ pid_t exec_argv(char *argv[], int in, int out, int err) {
 
 		if (execvp(argv[0], argv) == -1) {
 			warn("exec `%s' failed", argv[0]);
-			exitall();
+			exitall(EX_OSERR);
 		}
 		break;
 	}

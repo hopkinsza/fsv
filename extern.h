@@ -96,7 +96,7 @@ void debug(char *fmt, ...);
 void usage();
 void version();
 void termpgrp();
-void exitall();
+void exitall(int status);
 void cd_to_cmddir(const char *cmddir, int create);
 
 #endif
