@@ -31,13 +31,14 @@ debug(char *fmt, ...)
 void
 usage()
 {
-	fprintf(stderr, "usage: %s blah blah\n", progname);
+	fprintf(stderr, "usage: %s [options] <cmd>\n", progname);
+	fprintf(stderr, "Type `man 1 fsv' for the manual.\n");
 }
 
 void
 version()
 {
-	fprintf(stderr, "fsv v%s\n", progversion);
+	fprintf(stderr, "%s %s\n", progname, FSV_VERSION);
 }
 
 /*

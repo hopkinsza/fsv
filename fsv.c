@@ -48,8 +48,7 @@
  */
 
 bool verbose = true;
-const char *progversion = "0.0.0";
-char *progname;
+const char *progname;
 pid_t pgrp;
 sigset_t bmask, obmask;
 

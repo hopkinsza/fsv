@@ -5,6 +5,8 @@
 #ifndef _EXTERN_H_
 #define _EXTERN_H_
 
+#define FSV_VERSION "0.0.0"
+
 /*
  * The prefix to keep state information under.
  * This should be a "sticky" directory.
@@ -30,8 +32,7 @@
 #include <sys/time.h>
 
 extern bool verbose;
-extern const char *progversion;
-extern char *progname;
+extern const char *progname;
 /* Process group for supervisor and children */
 extern pid_t pgrp;
 /* Signal block mask: new and original */
