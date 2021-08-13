@@ -101,4 +101,6 @@ void cd_to_cmddir(const char *cmddir, int create);
 void exitall(int status);
 void termpgrp();
 
+unsigned long str_to_ul(const char *);
+
 #endif

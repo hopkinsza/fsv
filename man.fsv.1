@@ -95,6 +95,16 @@ Program to pipe
 the output of
 .Va cmd
 into.
+.It Fl m Ar mask
+Used to specify what output to redirect from
+.Va cmd
+to
+.Va log :
+.Dv stdout Pq 1 ,
+.Dv stderr Pq 2 ,
+or
+.Dv both Pq 3 .
+Default is 3.
 .It Fl n Ar name
 Use
 .Ar name
@@ -105,8 +115,17 @@ instead of letting
 choose it automatically.
 .It Fl q
 Quiet.
+.It Fl s Ar recent_restarts_max
+Set
+.Va recent_restarts_max .
+.It Fl S Ar recent_secs
+Set
+.Va recent_secs .
 .It Fl s Ar name
 Status.
+.It Fl t Ar timeout
+Set
+.Va timeout .
 .It Fl v
 Verbose.
 .It Fl V , Fl -version
@@ -120,7 +139,7 @@ keeps its state information in a file tree rooted at
 .Dv FSV_CMDDIR_PREFIX ,
 by default
 .Pa /var/tmp .
-This is configurable as a preprocessor constant
+This is configurable as a compile-time preprocessor constant
 and should be a
 .Dq sticky
 directory
@@ -193,7 +212,7 @@ from the shell,
 this means you shouldn't pipe anything into
 .Nm
 \(em which would be pointless anyways because it never reads
-.Dv STDIN .
+.Dv stderr .
 If you're curious about the details, see
 .Xr getpgrp 2 .
 .Pp

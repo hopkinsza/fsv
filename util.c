@@ -131,7 +131,8 @@ termpgrp()
 		 * This should never happen, but print a warning and
 		 * do our best if it does.
 		 */
-		warnx("termpgrp() used incorrectly in source (while SIGTERM is not ignored)");
+		warnx("termpgrp() used incorrectly in source (while SIGTERM is not blocked)");
+		warnx("if you see this, please report it as a bug!");
 		kill(-pgrp, SIGCONT);
 		kill(-pgrp, SIGTERM);
 		/* NOTREACHED */
@@ -140,4 +141,37 @@ termpgrp()
 
 	kill(-pgrp, SIGTERM);
 	kill(-pgrp, SIGCONT);
+}
+
+unsigned long
+str_to_ul(const char *str)
+{
+	char *ep;
+	long val;
+
+	errno = 0;
+	val = strtol(str, &ep, 0);
+
+	if (ep == str) {
+		warnx("string to number conversion failed for `%s': "
+		      "not a number, or improper format", str);
+		exitall(EX_DATAERR);
+	}
+	if (*ep != '\0') {
+		warnx("string to number conversion failed for `%s': "
+		      "trailing junk `%s'", str, ep);
+		exitall(EX_DATAERR);
+	}
+	if (errno != 0) {
+		warnx("string to number conversion failed for `%s': "
+		      "number out of range", str);
+		exitall(EX_DATAERR);
+	}
+	if (val < 0) {
+		warnx("string to number conversion failed for `%s': "
+		      "should be positive", str);
+		exitall(EX_DATAERR);
+	}
+
+	return (unsigned long)val;
 }

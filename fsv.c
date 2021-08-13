@@ -14,37 +14,17 @@
 #include "extern.h"
 
 /*
- * implemented:
- *   -c 'cmd'
- *   -h
- *   -l 'logproc'
- *   -n 'name'
- *   -v
- *   -V
- *
- * planned flags:
- *   -s name: status
- *
  * probably:
  *   -k sig: signal -- pass args to kill(1)?
  *
  * maybe:
  *   -d dir: chdir
- *   -m: as in freebsd daemon(8)
  *   -f: same, maybe with mask arg
  *
  * chpst opts:
- * -b argv0
- * -e envdir
  * -/ root
- * -n nice
- * -l lock
  * (limit options skipped)
- * -v
  * -P new process group
- * -0 close stdin
- * -1 close stdout
- * -2 close stderr
  */
 
 bool verbose = true;
@@ -55,7 +35,7 @@ sigset_t bmask, obmask;
 static volatile sig_atomic_t gotchld = 0;
 static volatile sig_atomic_t termsig = 0;
 
-void run_cmd(struct proc *, int[], const char *, bool, int, char *[]);
+void run_cmd(struct proc *, int[], const char *, bool, int, char *[], unsigned long);
 void run_log(struct proc *, int[], const char *);
 void onchld(int), onterm(int);
 
@@ -165,15 +145,21 @@ main(int argc, char *argv[])
 	 * Process arguments.
 	 */
 
-	const char *getopt_str = "+c:hl:n:qs:vV";
+	unsigned long out_mask;
+
+	const char *getopt_str = "+c:hl:m:n:qr:s:S:t:vV";
 
 	struct option longopts[] = {
 		{ "cmd",	required_argument,	NULL,	'c' },
 		{ "help",	no_argument,		NULL,	'h' },
 		{ "log",	required_argument,	NULL,	'l' },
+		{ "mask",	required_argument,	NULL,	'm' },
 		{ "name",	required_argument,	NULL,	'n' },
 		{ "quiet",	no_argument,		NULL,	'q' },
+		{ "restarts-max",required_argument,	NULL,	'r' },
 		{ "status",	required_argument,	NULL,	's' },
+		{ "recent-secs",required_argument,	NULL,	'S' },
+		{ "timeout",	required_argument,	NULL,	't' },
 		{ "verbose",	no_argument,		NULL,	'v' },
 		{ "version",	no_argument,		NULL,	'V' },
 		{ NULL,		0,			NULL,	0 }
@@ -193,16 +179,32 @@ main(int argc, char *argv[])
 			logging = true;
 			log_fullcmd = optarg;
 			break;
+		case 'm':
+			out_mask = str_to_ul(optarg);
+			if (out_mask == 0 || out_mask > 3)
+				errx(EX_DATAERR, "-m arg must be in range 0-3");
+			break;
 		case 'n':
 			cmdname = optarg;
 			break;
 		case 'q':
 			verbose = false;
 			break;
+		case 'r':
+			fsv->recent_restarts_max = str_to_ul(optarg);
+			break;
 		case 's':
 			cmdname = optarg;
 			cd_to_cmddir(cmdname, 0);
 			print_info(cmdname); exit(0);
+			break;
+		case 'S':
+			fsv->recent_secs = str_to_ul(optarg);
+			if (fsv->recent_secs == 0)
+				errx(EX_DATAERR, "-S arg should be >0");
+			break;
+		case 't':
+			fsv->timeout = str_to_ul(optarg);
 			break;
 		case 'v':
 			verbose = true;
@@ -277,7 +279,7 @@ main(int argc, char *argv[])
 	 * Run cmd.
 	 */
 
-	run_cmd(cmd, logpipe, cmd_fullcmd, logging, argc, argv);
+	run_cmd(cmd, logpipe, cmd_fullcmd, logging, argc, argv, out_mask);
 
 	/*
 	 * Main loop. Wait for signals, update cmd and log structs when received.
@@ -353,7 +355,7 @@ main(int argc, char *argv[])
 					if (i == 0) {
 						/* restart cmd */
 						run_cmd(cmd, logpipe, cmd_fullcmd,
-							logging, argc, argv);
+							logging, argc, argv, out_mask);
 					} else if (i == 1) {
 						/* restart log */
 						run_log(log, logpipe, log_fullcmd);
@@ -372,22 +374,30 @@ main(int argc, char *argv[])
 
 void
 run_cmd(struct proc *cmd, int logpipe[], const char *cmd_fullcmd, bool logging,
-	int argc, char *argv[])
+	int argc, char *argv[], unsigned long out_mask)
 {
 	int fd0, fd1, fd2;
 
 	gettimeofday(&cmd->tv, NULL);
 
 	fd0 = -1;
+	fd1 = -1;
+	fd2 = -1;
 	if (logging) {
-		fd1 = logpipe[1];
-		fd2 = logpipe[1];
-	} else {
-		fd1 = -1;
-		fd2 = -1;
+		switch (out_mask) {
+		case 1:
+			fd1 = logpipe[1];
+			break;
+		case 2:
+			fd2 = logpipe[1];
+			break;
+		case 3:
+			fd1 = logpipe[1];
+			fd2 = logpipe[1];
+			break;
+		}
 	}
 
-	/* TODO1 */
 	if (argc > 0) {
 		cmd->pid = exec_argv(argv, fd0, fd1, fd2);
 	} else {
@@ -403,7 +413,6 @@ void
 run_log(struct proc *log, int logpipe[], const char *log_fullcmd)
 {
 	gettimeofday(&log->tv, NULL);
-	/* TODO1: add flag to control which fd's to pass through the pipe */
 	log->pid = exec_str(log_fullcmd, logpipe[0], -1, -1);
 
 	debug("started log process (%ld) at %ld\n", log->pid, (long)log->tv.tv_sec);
