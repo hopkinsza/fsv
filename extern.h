@@ -96,8 +96,9 @@ void dprint_wstatus(int, int);
 void debug(char *fmt, ...);
 void usage();
 void version();
-void termpgrp();
-void exitall(int status);
+
 void cd_to_cmddir(const char *cmddir, int create);
+void exitall(int status);
+void termpgrp();
 
 #endif

@@ -41,43 +41,6 @@ version()
 	fprintf(stderr, "%s %s\n", progname, FSV_VERSION);
 }
 
-/*
- * Send SIGTERM to our process group.
- * This should only be used while SIGTERM is ignored in the calling process.
- */
-void
-termpgrp()
-{
-	sigset_t cur_bmask;
-	sigprocmask(SIG_BLOCK, NULL, &cur_bmask);
-
-	if (!sigismember(&cur_bmask, SIGTERM)) {
-		/*
-		 * This should never happen, but print a warning and
-		 * do our best if it does.
-		 */
-		warnx("termpgrp() used incorrectly in source (while SIGTERM is not ignored)");
-		kill(-pgrp, SIGCONT);
-		kill(-pgrp, SIGTERM);
-		/* NOTREACHED */
-		exit(1);
-	}
-
-	kill(-pgrp, SIGTERM);
-	kill(-pgrp, SIGCONT);
-}
-
-/*
- * Call termpgrp(), then exit.
- */
-void
-exitall(int status)
-{
-	termpgrp();
-	debug("sent SIGTERM to pgrp, exiting\n");
-	exit(status);
-}
-
 void
 cd_to_cmddir(const char *cmddir, int create)
 {
@@ -140,4 +103,41 @@ cd_to_cmddir(const char *cmddir, int create)
 	if (chdir(cmddir) == -1)
 		err(EX_IOERR, "chdir to `%s/%s/%s' failed",
 		    FSV_CMDDIR_PREFIX, fsvdir, cmddir);
+}
+
+/*
+ * Call termpgrp(), then exit.
+ */
+void
+exitall(int status)
+{
+	termpgrp();
+	debug("sent SIGTERM to pgrp, exiting\n");
+	exit(status);
+}
+
+/*
+ * Send SIGTERM to our process group.
+ * This should only be used while SIGTERM is ignored in the calling process.
+ */
+void
+termpgrp()
+{
+	sigset_t cur_bmask;
+	sigprocmask(SIG_BLOCK, NULL, &cur_bmask);
+
+	if (!sigismember(&cur_bmask, SIGTERM)) {
+		/*
+		 * This should never happen, but print a warning and
+		 * do our best if it does.
+		 */
+		warnx("termpgrp() used incorrectly in source (while SIGTERM is not ignored)");
+		kill(-pgrp, SIGCONT);
+		kill(-pgrp, SIGTERM);
+		/* NOTREACHED */
+		exit(1);
+	}
+
+	kill(-pgrp, SIGTERM);
+	kill(-pgrp, SIGCONT);
 }
