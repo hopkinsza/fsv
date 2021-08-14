@@ -260,14 +260,23 @@ main(int argc, char *argv[])
 
 		if (cmdname == NULL) {
 			/*
-			 * Use portion of the string up to the first space.
-			 * This is equivalent to the command as long as it
-			 * doesn't contain a space, and what kind of maniac
-			 * would do that?
+			 * Use portion of the string up to the first space,
+			 * unless it starts with a double quote '"'.
+			 * Then, use portion of the string between the quotes.
+			 *
+			 * This is not absolutely perfect, but it works for
+			 * the sane cases.
 			 */
+
 			cmdname = malloc(strlen(cmd_fullcmd) + 1);
 			strcpy(cmdname, cmd_fullcmd);
-			strtok(cmdname, " ");
+
+			if (*cmdname != '"') {
+				strtok(cmdname, " ");
+			} else {
+				cmdname++;
+				strtok(cmdname, "\"");
+			}
 		}
 	} else {
 		/* Not given via -c, use argv instead. */
