@@ -272,6 +272,12 @@ main(int argc, char *argv[])
 			strcpy(cmdname, cmd_fullcmd);
 
 			if (*cmdname != '"') {
+				if (*cmdname == ' ') {
+					errx(EX_DATAERR,
+					     "-c arg begins with a space, "
+					     "please change this to something "
+					     "more sane");
+				}
 				strtok(cmdname, " ");
 			} else {
 				cmdname++;
