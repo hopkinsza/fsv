@@ -316,7 +316,8 @@ main(int argc, char *argv[])
 						procname = "log";
 
 					debug("%s update: ", procname);
-					dprint_wstatus(2, status);
+					if (verbose)
+						dprint_wstatus(2, status);
 
 					proc = &procs[i];
 					proc->status = status;
