@@ -44,29 +44,21 @@ struct fsv {
 	pid_t pid;
 	struct timeval since;
 	/*
-	 * Only relevant if not running. True if fsv "gave up" on restarting
-	 * the program because timeout is set to 0 (see next)
+	 * Only relevant if not running.
+	 * True if fsv "gave up" on restarting one of
+	 * the programs because its timeout was set to 0
 	 */
 	bool gaveup;
-	/*
-	 * The following 3 values are related to the programs being run.
-	 *
-	 * Max amount of seconds before considering this a new string of crashes
-	 *   i.e. resetting recent_restarts to 0 (value of 0 means never);
-	 * How many recent restarts to allow before taking action;
-	 * What action to take:
-	 *   0: stop restarting
-	 *   n: wait n secs before restarting again
-	 */
-	time_t recent_secs;
-	unsigned long recent_restarts_max;
-	time_t timeout;
 };
 
 struct proc {
 	pid_t pid;
 	unsigned long total_restarts;
+
+	time_t recent_secs;
+	time_t timeout;
 	unsigned long recent_restarts;
+	unsigned long recent_restarts_max;
 	/* Time of the most recent restart */
 	struct timeval tv;
 	/* If non-zero, most recent exit status as returned by wait(2) */

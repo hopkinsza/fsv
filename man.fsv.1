@@ -78,6 +78,19 @@ is zero,
 will
 .Dq give up
 and exit.
+.Pp
+.Va timeout
+is always zero for the
+.Va log
+process.
+This is because it is a very
+.Em bad
+thing if the log process starts crashing \(em
+the pipe will fill up and
+.Xr write 2
+calls will start blocking when the
+.Va cmd
+process tries to log.
 .\"
 .\" options
 .\"
@@ -115,14 +128,14 @@ instead of letting
 choose it automatically.
 .It Fl q
 Quiet.
-.It Fl s Ar recent_restarts_max
+.It Fl r Ar recent_restarts_max
 Set
 .Va recent_restarts_max .
+.It Fl s Ar name
+Status.
 .It Fl S Ar recent_secs
 Set
 .Va recent_secs .
-.It Fl s Ar name
-Status.
 .It Fl t Ar timeout
 Set
 .Va timeout .

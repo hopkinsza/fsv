@@ -85,9 +85,6 @@ void print_info(char *cmdname) {
 	printf("\t         %s\n", buf);
 	printf("\t         %ld\n", (long)fsv.since.tv_sec);
 	printf("\tgaveup:  %d\n",  fsv.gaveup);
-	printf("\trecent_secs:         %ld\n", (long)fsv.recent_secs);
-	printf("\trecent_restarts_max: %ld\n", (long)fsv.recent_restarts_max);
-	printf("\ttimeout:             %ld\n", (long)fsv.timeout);
 
 	/* procs */
 	for (int i=0; i<2; i++) {
@@ -99,9 +96,11 @@ void print_info(char *cmdname) {
 		struct proc p = ai.procs[i];
 
 		printf("\tpid: %ld\n", (long)p.pid);
-		printf("\ttotal_restarts:  %lu\n", p.total_restarts);
+		printf("\ttimeout:         %lu\n", (unsigned long)p.timeout);
 		printf("\trecent_restarts: %lu\n", p.recent_restarts);
-		printf("\ttv:     %ld\n", (long)p.tv.tv_sec);
+		printf("\trecent_restarts_max: %lu\n", p.recent_restarts_max);
+		printf("\ttotal_restarts:  %lu\n", p.total_restarts);
+		printf("\ttv:              %ld\n", (long)p.tv.tv_sec);
 		/* flush to prevent output buffering issues */
 		fflush(stdout);
 		dprintf(1, "\tstatus: ");

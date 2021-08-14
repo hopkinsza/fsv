@@ -63,21 +63,29 @@ main(int argc, char *argv[])
 		.pid = getpid(),
 		.since = { 0, 0 },
 		.gaveup = false,
-		.recent_secs = 3600, /* 1 hr */
-		.recent_restarts_max = 4,
-		.timeout = 0
 	};
 	gettimeofday(&fsv->since, NULL);
 
-	for (int i=0; i<2; i++) {
-		procs[i] = (struct proc){
-			.pid = 0,
-			.total_restarts = 0,
-			.recent_restarts = 0,
-			.tv = { 0, 0 },
-			.status = 0
-		};
-	}
+	*cmd = (struct proc){
+		.pid = 0,
+		.total_restarts = 0,
+		.recent_secs = 3600, /* 1 hr */
+		.timeout = 0,
+		.recent_restarts = 0,
+		.recent_restarts_max = 3,
+		.tv = { 0, 0 },
+		.status = 0
+	};
+	*log = (struct proc){
+		.pid = 0,
+		.total_restarts = 0,
+		.recent_secs = 3600,
+		.timeout = 0,
+		.recent_restarts = 0,
+		.recent_restarts_max = 3,
+		.tv = { 0, 0 },
+		.status = 0
+	};
 
 #if 0
 	/* Fork to make sure we're not a process group leader. */
@@ -191,7 +199,13 @@ main(int argc, char *argv[])
 			verbose = false;
 			break;
 		case 'r':
-			fsv->recent_restarts_max = str_to_ul(optarg);
+			if (*optarg == 'l') {
+				debug("setting recent_restarts_max for log\n");
+				optarg++;
+				log->recent_restarts_max = str_to_ul(optarg);
+			} else {
+				cmd->recent_restarts_max = str_to_ul(optarg);
+			}
 			break;
 		case 's':
 			cmdname = optarg;
@@ -199,12 +213,20 @@ main(int argc, char *argv[])
 			print_info(cmdname); exit(0);
 			break;
 		case 'S':
-			fsv->recent_secs = str_to_ul(optarg);
-			if (fsv->recent_secs == 0)
-				errx(EX_DATAERR, "-S arg should be >0");
+			if (*optarg == 'l') {
+				debug("setting recent_secs for log\n");
+				optarg++;
+				log->recent_secs = str_to_ul(optarg);
+				if (log->recent_secs == 0)
+					errx(EX_DATAERR, "-S arg should be >0");
+			} else {
+				cmd->recent_secs = str_to_ul(optarg);
+				if (cmd->recent_secs == 0)
+					errx(EX_DATAERR, "-S arg should be >0");
+			}
 			break;
 		case 't':
-			fsv->timeout = str_to_ul(optarg);
+			cmd->timeout = str_to_ul(optarg);
 			break;
 		case 'v':
 			verbose = true;
@@ -324,8 +346,8 @@ main(int argc, char *argv[])
 					proc->total_restarts += 1;
 					time(&now);
 
-					if (fsv->recent_secs == 0 ||
-					    ((now - proc->tv.tv_sec) <= fsv->recent_secs)) {
+					if (proc->recent_secs == 0 ||
+					    ((now - proc->tv.tv_sec) <= proc->recent_secs)) {
 						proc->recent_restarts += 1;
 					} else {
 						proc->recent_restarts = 1;
@@ -334,20 +356,20 @@ main(int argc, char *argv[])
 					write_info(*fsv, *cmd, *log, NULL, NULL);
 
 					if (proc->recent_restarts >=
-					    fsv->recent_restarts_max) {
+					    proc->recent_restarts_max) {
 						/* Max restarts reached. */
 						debug("recent_restarts_max (%lu) reached for %s,",
-						    fsv->recent_restarts_max, procname);
-						if (fsv->timeout == 0) {
+						    proc->recent_restarts_max, procname);
+						if (proc->timeout == 0) {
 							debug(" exiting\n");
 							fsv->gaveup = true;
 							write_info(*fsv, *cmd, *log, NULL, NULL);
 							exitall(0);
 						} else {
 							debug(" sleeping for %d secs\n",
-							    fsv->timeout);
+							    proc->timeout);
 							struct timespec ts;
-							ts.tv_sec = fsv->timeout;
+							ts.tv_sec = proc->timeout;
 							ts.tv_nsec = 0;
 							nanosleep(&ts, NULL);
 						}
