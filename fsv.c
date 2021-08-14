@@ -32,6 +32,9 @@ const char *progname;
 pid_t pgrp;
 sigset_t bmask, obmask;
 
+pid_t *cmd_pid;
+pid_t *log_pid;
+
 static volatile sig_atomic_t gotchld = 0;
 static volatile sig_atomic_t termsig = 0;
 
@@ -86,6 +89,9 @@ main(int argc, char *argv[])
 		.tv = { 0, 0 },
 		.status = 0
 	};
+
+	cmd_pid = &cmd->pid;
+	log_pid = &log->pid;
 
 #if 0
 	/* Fork to make sure we're not a process group leader. */
@@ -153,7 +159,7 @@ main(int argc, char *argv[])
 	 * Process arguments.
 	 */
 
-	unsigned long out_mask;
+	unsigned long out_mask = 3;
 
 	const char *getopt_str = "+c:hl:m:n:qr:s:S:t:vV";
 

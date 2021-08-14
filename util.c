@@ -106,41 +106,30 @@ cd_to_cmddir(const char *cmddir, int create)
 }
 
 /*
- * Call termpgrp(), then exit.
+ * Call termprocs(), then exit.
  */
 void
 exitall(int status)
 {
-	termpgrp();
-	debug("sent SIGTERM to pgrp, exiting\n");
+	termprocs();
+	debug("sent SIGTERM to procs, exiting\n");
 	exit(status);
 }
 
 /*
- * Send SIGTERM to our process group.
- * This should only be used while SIGTERM is ignored in the calling process.
+ * Send SIGTERM to the two processes.
  */
 void
-termpgrp()
+termprocs()
 {
-	sigset_t cur_bmask;
-	sigprocmask(SIG_BLOCK, NULL, &cur_bmask);
-
-	if (!sigismember(&cur_bmask, SIGTERM)) {
-		/*
-		 * This should never happen, but print a warning and
-		 * do our best if it does.
-		 */
-		warnx("termpgrp() used incorrectly in source (while SIGTERM is not blocked)");
-		warnx("if you see this, please report it as a bug!");
-		kill(-pgrp, SIGCONT);
-		kill(-pgrp, SIGTERM);
-		/* NOTREACHED */
-		exit(1);
+	if (*cmd_pid != 0) {
+		kill(*cmd_pid, SIGTERM);
+		kill(*cmd_pid, SIGCONT);
 	}
-
-	kill(-pgrp, SIGTERM);
-	kill(-pgrp, SIGCONT);
+	if (*log_pid != 0) {
+		kill(*log_pid, SIGTERM);
+		kill(*log_pid, SIGCONT);
+	}
 }
 
 unsigned long

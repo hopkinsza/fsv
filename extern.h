@@ -38,6 +38,9 @@ extern pid_t pgrp;
 /* Signal block mask: new and original */
 extern sigset_t bmask, obmask;
 
+extern pid_t *cmd_pid;
+extern pid_t *log_pid;
+
 struct fsv {
 	/* Is fsv running, what's the PID, and since when */
 	bool running;
@@ -91,7 +94,7 @@ void version();
 
 void cd_to_cmddir(const char *cmddir, int create);
 void exitall(int status);
-void termpgrp();
+void termprocs();
 
 unsigned long str_to_ul(const char *);
 
