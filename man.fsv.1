@@ -11,6 +11,11 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl hqvV
+.Op Fl m Ar mask
+.Op Fl n Ar name
+.Op Fl r Ar recent_restarts_max
+.Op Fl S Ar recent_secs
+.Op Fl t Ar timeout
 .Op Fl l Ar log
 .Ar cmd
 .Nm
@@ -130,12 +135,26 @@ choose it automatically.
 Quiet.
 .It Fl r Ar recent_restarts_max
 Set
-.Va recent_restarts_max .
+.Va recent_restarts_max
+for
+.Va cmd .
+Prefix the number with
+.Ql l
+to set for
+.Va log
+instead.
 .It Fl s Ar name
 Status.
 .It Fl S Ar recent_secs
 Set
-.Va recent_secs .
+.Va recent_secs
+for
+.Va cmd .
+Prefix the number with
+.Ql l
+fo set for
+.Va log
+instead.
 .It Fl t Ar timeout
 Set
 .Va timeout .
