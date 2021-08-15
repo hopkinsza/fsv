@@ -2,20 +2,22 @@
 
 PROG = fsv
 SRCS = fsv.c info.c proc.c util.c
+OBJS = $(SRCS:.c=.o)
 
-CFLAGS += -Wall
+CFLAGS = -Wall
 
 
-.PHONY: clean
+.PHONY: all clean
 
-$(PROG): $(SRCS)
+$(PROG):
+	$(CC) $(CFLAGS) $(OBJS) -o $@
 
-$(SRCS): extern.h
-	@echo "extern.h updated: touch $@"
-	@touch $@
+$(PROG): $(OBJS)
+
+$(OBJS): extern.h
 
 clean:
-	@rm $(PROG)
+	@rm -f $(PROG) *.o
 	@echo cleaned
 
 # a.out: fsv.c
