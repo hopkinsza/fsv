@@ -35,12 +35,14 @@ sigset_t bmask, obmask;
 pid_t *cmd_pid;
 pid_t *log_pid;
 
+static volatile sig_atomic_t gotalrm = 0;
 static volatile sig_atomic_t gotchld = 0;
 static volatile sig_atomic_t termsig = 0;
 
+void onalrm(int), onchld(int), onterm(int);
+
 void run_cmd(struct proc *, int[], const char *, bool, int, char *[], unsigned long);
 void run_log(struct proc *, int[], const char *);
-void onchld(int), onterm(int);
 
 int
 main(int argc, char *argv[])
@@ -62,10 +64,10 @@ main(int argc, char *argv[])
 	progname = argv[0];
 
 	*fsv = (struct fsv){
-		.running = true,
 		.pid = getpid(),
 		.since = { 0, 0 },
-		.gaveup = false,
+		.timeout = 0,
+		.gaveup = false
 	};
 	gettimeofday(&fsv->since, NULL);
 
@@ -73,7 +75,6 @@ main(int argc, char *argv[])
 		.pid = 0,
 		.total_restarts = 0,
 		.recent_secs = 3600, /* 1 hr */
-		.timeout = 0,
 		.recent_restarts = 0,
 		.recent_restarts_max = 3,
 		.tv = { 0, 0 },
@@ -83,7 +84,6 @@ main(int argc, char *argv[])
 		.pid = 0,
 		.total_restarts = 0,
 		.recent_secs = 3600,
-		.timeout = 0,
 		.recent_restarts = 0,
 		.recent_restarts_max = 3,
 		.tv = { 0, 0 },
@@ -127,6 +127,7 @@ main(int argc, char *argv[])
 	sigprocmask(SIG_SETMASK, &obmask, NULL);
 
 	sigemptyset(&bmask);
+	sigaddset(&bmask, SIGALRM);
 	sigaddset(&bmask, SIGCHLD);
 	sigaddset(&bmask, SIGINT);
 	sigaddset(&bmask, SIGHUP);
@@ -139,7 +140,11 @@ main(int argc, char *argv[])
 	 * Set handlers.
 	 */
 
-	struct sigaction chld_sa, term_sa;
+	struct sigaction alrm_sa, chld_sa, term_sa;
+
+	alrm_sa.sa_handler = onalrm;
+	alrm_sa.sa_mask = bmask;
+	alrm_sa.sa_flags = 0;
 
 	chld_sa.sa_handler = onchld;
 	chld_sa.sa_mask    = bmask;
@@ -149,6 +154,7 @@ main(int argc, char *argv[])
 	term_sa.sa_mask    = bmask;
 	term_sa.sa_flags   = 0;
 
+	sigaction(SIGALRM, &alrm_sa, NULL);
 	sigaction(SIGCHLD, &chld_sa, NULL);
 	sigaction(SIGINT,  &term_sa, NULL);
 	sigaction(SIGHUP,  &term_sa, NULL);
@@ -232,7 +238,7 @@ main(int argc, char *argv[])
 			}
 			break;
 		case 't':
-			cmd->timeout = str_to_ul(optarg);
+			fsv->timeout = str_to_ul(optarg);
 			break;
 		case 'v':
 			verbose = true;
@@ -334,7 +340,12 @@ main(int argc, char *argv[])
 	for (;;) {
 
 	sigsuspend(&obmask);
-	if (gotchld) {
+
+	if (gotalrm) {
+		/* Alarm received, timeout is done. */
+		gotalrm = 0;
+		run_cmd(cmd, logpipe, cmd_fullcmd, logging, argc, argv, out_mask);
+	} else if (gotchld) {
 		int status;
 		/* waitpid(2) flags */
 		int wpf = WNOHANG|WCONTINUED|WUNTRACED;
@@ -351,61 +362,59 @@ main(int argc, char *argv[])
 				debug("??? unknown child!\n");
 			}
 
-			for (int i=0; i<2; i++) {
-				if (wpid == procs[i].pid) {
-					const char *procname;
+			for (int i=0; i<2; i++) if (wpid == procs[i].pid) {
+				bool do_restart = true;
+				const char *procname;
 
-					if (i == 0)
-						procname = "cmd";
-					else if (i == 1)
-						procname = "log";
+				if (i == 0)
+					procname = "cmd";
+				else if (i == 1)
+					procname = "log";
 
+				if (verbose) {
 					debug("%s update: ", procname);
-					if (verbose)
-						dprint_wstatus(2, status);
+					dprint_wstatus(2, status);
+				}
 
-					proc = &procs[i];
-					proc->status = status;
-					proc->total_restarts += 1;
-					time(&now);
+				proc = &procs[i];
+				proc->status = status;
+				time(&now);
 
-					if (proc->recent_secs == 0 ||
-					    ((now - proc->tv.tv_sec) <= proc->recent_secs)) {
-						proc->recent_restarts += 1;
+				if (proc->recent_secs == 0 ||
+				    ((now - proc->tv.tv_sec) <= proc->recent_secs)) {
+					proc->recent_restarts += 1;
+				} else {
+					proc->recent_restarts = 1;
+				}
+
+				write_info(*fsv, *cmd, *log, NULL, NULL);
+
+				if (proc->recent_restarts >= proc->recent_restarts_max) {
+					/* Max restarts reached. */
+					do_restart = false;
+					debug("recent_restarts_max (%lu) reached for %s, ",
+					    proc->recent_restarts_max, procname);
+
+					if (i == 1 || fsv->timeout == 0) {
+						debug("exiting\n");
+						fsv->pid = 0;
+						fsv->gaveup = true;
+						write_info(*fsv, *cmd, *log, NULL, NULL);
+						exitall(0);
 					} else {
-						proc->recent_restarts = 1;
+						debug("setting alarm for %lu secs\n",
+						    fsv->timeout);
+						alarm((unsigned int)fsv->timeout);
 					}
+				}
 
-					write_info(*fsv, *cmd, *log, NULL, NULL);
-
-					if (proc->recent_restarts >=
-					    proc->recent_restarts_max) {
-						/* Max restarts reached. */
-						debug("recent_restarts_max (%lu) reached for %s,",
-						    proc->recent_restarts_max, procname);
-						if (proc->timeout == 0) {
-							debug(" exiting\n");
-							fsv->gaveup = true;
-							write_info(*fsv, *cmd, *log, NULL, NULL);
-							exitall(0);
-						} else {
-							debug(" sleeping for %d secs\n",
-							    proc->timeout);
-							struct timespec ts;
-							ts.tv_sec = proc->timeout;
-							ts.tv_nsec = 0;
-							nanosleep(&ts, NULL);
-						}
-					}
-
-					if (i == 0) {
-						/* restart cmd */
-						run_cmd(cmd, logpipe, cmd_fullcmd,
-							logging, argc, argv, out_mask);
-					} else if (i == 1) {
-						/* restart log */
-						run_log(log, logpipe, log_fullcmd);
-					}
+				if (do_restart && i == 0) {
+					/* restart cmd */
+					run_cmd(cmd, logpipe, cmd_fullcmd,
+						logging, argc, argv, out_mask);
+				} else if (do_restart && i == 1) {
+					/* restart log */
+					run_log(log, logpipe, log_fullcmd);
 				}
 			}
 		}
@@ -424,6 +433,7 @@ run_cmd(struct proc *cmd, int logpipe[], const char *cmd_fullcmd, bool logging,
 {
 	int fd0, fd1, fd2;
 
+	cmd->total_restarts++;
 	gettimeofday(&cmd->tv, NULL);
 
 	fd0 = -1;
@@ -458,10 +468,17 @@ run_cmd(struct proc *cmd, int logpipe[], const char *cmd_fullcmd, bool logging,
 void
 run_log(struct proc *log, int logpipe[], const char *log_fullcmd)
 {
+	log->total_restarts++;
 	gettimeofday(&log->tv, NULL);
 	log->pid = exec_str(log_fullcmd, logpipe[0], -1, -1);
 
 	debug("started log process (%ld) at %ld\n", log->pid, (long)log->tv.tv_sec);
+}
+
+void
+onalrm(int sig)
+{
+	gotalrm = 1;
 }
 
 void

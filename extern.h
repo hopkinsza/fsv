@@ -42,10 +42,10 @@ extern pid_t *cmd_pid;
 extern pid_t *log_pid;
 
 struct fsv {
-	/* Is fsv running, what's the PID, and since when */
-	bool running;
+	/* PID is 0 if not running, and since when */
 	pid_t pid;
 	struct timeval since;
+	unsigned long timeout;
 	/*
 	 * Only relevant if not running.
 	 * True if fsv "gave up" on restarting one of
@@ -58,13 +58,12 @@ struct proc {
 	pid_t pid;
 	unsigned long total_restarts;
 
-	time_t recent_secs;
-	time_t timeout;
+	unsigned long recent_secs;
 	unsigned long recent_restarts;
 	unsigned long recent_restarts_max;
 	/* Time of the most recent restart */
 	struct timeval tv;
-	/* If non-zero, most recent exit status as returned by wait(2) */
+	/* If tv is not epoch, most recent exit status as returned by wait(2) */
 	int status;
 };
 
