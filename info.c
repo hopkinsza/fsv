@@ -2,12 +2,6 @@
  * info.c
  */
 
-/*
- * write_info might need these
- */
-// #include <sys/types.h>
-// #include <sys/stat.h>
-
 #include <err.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -27,12 +21,16 @@ void read_info(struct allinfo *ai) {
 	ssize_t bread;
 
 	/* TODO cleanup */
-	if ((fd = open("info.struct", O_RDONLY)) == -1)
-		err(EX_UNAVAILABLE, "cannot open `info.struct'");
+	if ((fd = open("info.struct", O_RDONLY)) == -1) {
+		warn("open `info.struct' failed");
+		exitall(EX_UNAVAILABLE);
+	}
 
 	bread = read(fd, ai, size);
-	if (bread == -1 || bread != size)
-		err(EX_IOERR, "read failed");
+	if (bread == -1 || bread != size) {
+		warn("read from `info.struct' failed");
+		exitall(EX_UNAVAILABLE);
+	}
 
 	close(fd);
 }
@@ -47,19 +45,23 @@ void write_info(struct fsv fsv, struct proc cmd, struct proc log,
 	ai.procs[0] = cmd;
 	ai.procs[1] = log;
 
-        int fd;
-        size_t size = sizeof(ai);
-        ssize_t written;
+	int fd;
+	size_t size = sizeof(ai);
+	ssize_t written;
 
-        /* TODO: kill child procs here? */
-        if ((fd = creat("info.struct", 00666)) == -1)
-                err(EX_CANTCREAT, "cannot create `info.struct'");
+	/* TODO: kill child procs here? */
+	if ((fd = creat("info.struct", 00666)) == -1) {
+		warn("create `info.struct' failed");
+		exitall(EX_CANTCREAT);
+	}
 
-        written = write(fd, &ai, size);
-        if (written == -1 || written != size)
-                err(EX_OSERR, "write failed");
+	written = write(fd, &ai, size);
+	if (written == -1 || written != size) {
+		warn("write into `info.struct' failed");
+		exitall(EX_OSERR);
+	}
 
-        close(fd);
+	close(fd);
 }
 
 void print_info(char *cmdname) {

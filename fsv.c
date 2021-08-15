@@ -329,6 +329,8 @@ main(int argc, char *argv[])
 	 * Not indented because it was getting cramped.
 	 */
 
+	write_info(*fsv, *cmd, *log, NULL, NULL);
+
 	for (;;) {
 
 	sigsuspend(&obmask);
