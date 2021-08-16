@@ -12,6 +12,8 @@ CFLAGS = -Wall
 $(PROG):
 	$(CC) $(CFLAGS) $(OBJS) -o $@
 
+all: $(PROG)
+
 $(PROG): $(OBJS)
 
 $(OBJS): extern.h
