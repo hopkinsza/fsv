@@ -5,6 +5,7 @@
 
 #include <err.h>
 #include <getopt.h>
+#include <libgen.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
@@ -256,22 +257,31 @@ main(int argc, char *argv[])
 	 * Then populate cmdname if not overridden by -n.
 	 */
 
-	if (cmd_fullcmd != NULL) {
-		/* Given via -c. */
+	if (cmd_fullcmd == NULL && argc == 0) {
+		warnx("no cmd to execute");
+		usage();
+		exit(EX_USAGE);
+	}
+	if (cmd_fullcmd != NULL && argc > 0) {
 		if (argc > 0) {
 			warnx("was given `-c' in addition to command");
 			usage();
 			exit(EX_USAGE);
 		}
+	}
 
-		if (cmdname == NULL) {
+	/* Note, the string is malloc()'ed but never freed. */
+	if (cmdname == NULL) {
+		if (cmd_fullcmd != NULL) {
 			/*
+			 * Generate cmdname from -c.
+			 *
 			 * Use portion of the string up to the first space,
 			 * unless it starts with a double quote '"'.
 			 * Then, use portion of the string between the quotes.
 			 *
-			 * This is not absolutely perfect, but it works for
-			 * the sane cases.
+			 * This is not absolutely perfect (e.g. fails with
+			 * initial whitespace), but it works for the sane cases.
 			 */
 
 			cmdname = malloc(strlen(cmd_fullcmd) + 1);
@@ -289,20 +299,20 @@ main(int argc, char *argv[])
 				cmdname++;
 				strtok(cmdname, "\"");
 			}
+			cmdname = basename(cmdname);
+		} else {
+			/* Not given via -c, use argv instead. */
+			cmdname = malloc(strlen(argv[0]) + 1);
+			strcpy(cmdname, argv[0]);
+			cmdname = basename(cmdname);
 		}
-	} else {
-		/* Not given via -c, use argv instead. */
-		if (argc == 0) {
-			warnx("no cmd to execute");
-			usage();
-			exit(EX_USAGE);
-		}
-
-		if (cmdname == NULL)
-			cmdname = argv[0];
 	}
 
 	debug("cmdname is %s\n", cmdname);
+
+	if (*cmdname == '.' || *cmdname == '/') {
+		errx(EX_DATAERR, "cmdname does not make sense");
+	}
 
 	/*
 	 * cd to cmddir, creating if necessary.
