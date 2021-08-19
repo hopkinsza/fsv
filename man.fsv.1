@@ -239,18 +239,6 @@ format specification used to display the local date and time.
 .\"
 .Sh CAVEATS
 .Nm
-needs to be a process group leader.
-In practice, when running
-.Nm
-from the shell,
-this means you shouldn't pipe anything into
-.Nm
-\(em which would be pointless anyways because it never reads
-.Dv stderr .
-If you're curious about the details, see
-.Xr getpgrp 2 .
-.Pp
-.Nm
 will
 .Xr chdir 2
 to a specific directory before executing

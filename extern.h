@@ -33,8 +33,6 @@
 
 extern bool verbose;
 extern const char *progname;
-/* Process group for supervisor and children */
-extern pid_t pgrp;
 /* Signal block mask: new and original */
 extern sigset_t bmask, obmask;
 

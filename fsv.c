@@ -29,7 +29,6 @@
 
 bool verbose = true;
 const char *progname;
-pid_t pgrp;
 sigset_t bmask, obmask;
 
 pid_t *cmd_pid;
@@ -109,11 +108,6 @@ main(int argc, char *argv[])
 	if ((pgrp = setsid()) == -1)
 		err(EX_OSERR, "cannot setsid(2)");
 #endif
-
-	pgrp = getpid();
-	if (getpgid(0) != getpid()) {
-		errx(1, "not a process group leader");
-	}
 
 	if (pipe(logpipe) == -1)
 		err(EX_OSERR, "cannot make pipe");
