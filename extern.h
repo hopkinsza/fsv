@@ -61,7 +61,7 @@ struct proc {
 	unsigned long recent_restarts_max;
 	/* Time of the most recent restart */
 	struct timeval tv;
-	/* If tv is not epoch, most recent exit status as returned by wait(2) */
+	/* If total_restarts > 0, most recent exit status as returned by wait(2) */
 	int status;
 };
 
@@ -72,6 +72,7 @@ struct proc {
 void write_info(struct fsv, struct proc, struct proc,
 		char *, char *);
 void print_info(char *);
+void print_info_pids(char *);
 
 /*
  * proc.c

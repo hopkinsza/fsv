@@ -162,7 +162,7 @@ main(int argc, char *argv[])
 
 	unsigned long out_mask = 3;
 
-	const char *getopt_str = "+c:hl:m:n:qr:s:S:t:vV";
+	const char *getopt_str = "+c:hl:m:n:p:qr:s:S:t:vV";
 
 	struct option longopts[] = {
 		{ "cmd",	required_argument,	NULL,	'c' },
@@ -170,6 +170,7 @@ main(int argc, char *argv[])
 		{ "log",	required_argument,	NULL,	'l' },
 		{ "mask",	required_argument,	NULL,	'm' },
 		{ "name",	required_argument,	NULL,	'n' },
+		{ "pids",	required_argument,	NULL,	'p' },
 		{ "quiet",	no_argument,		NULL,	'q' },
 		{ "restarts-max",required_argument,	NULL,	'r' },
 		{ "status",	required_argument,	NULL,	's' },
@@ -202,6 +203,12 @@ main(int argc, char *argv[])
 		case 'n':
 			cmdname = optarg;
 			break;
+		case 'p':
+			cmdname = optarg;
+			cd_to_cmddir(cmdname, 0);
+			print_info_pids(cmdname);
+			exit(0);
+			break;
 		case 'q':
 			verbose = false;
 			break;
@@ -217,7 +224,8 @@ main(int argc, char *argv[])
 		case 's':
 			cmdname = optarg;
 			cd_to_cmddir(cmdname, 0);
-			print_info(cmdname); exit(0);
+			print_info(cmdname);
+			exit(0);
 			break;
 		case 'S':
 			if (*optarg == 'l') {

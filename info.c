@@ -138,3 +138,23 @@ print_info(char *cmdname)
 			dprintf(1, "n/a\n");
 	}
 }
+
+void
+print_info_pids(char *cmdname)
+{
+	struct allinfo ai;
+	long pids[3];
+
+	read_info(&ai);
+	pids[0] = (long)ai.fsv.pid;
+	pids[1] = (long)ai.procs[0].pid;
+	pids[2] = (long)ai.procs[1].pid;
+
+	for (int i=0; i<3; i++) {
+		if (pids[i] != 0) {
+			printf("%ld\n", pids[i]);
+		} else {
+			printf("n/a\n");
+		}
+	}
+}
