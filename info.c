@@ -19,56 +19,35 @@ struct allinfo {
 /* indented printf */
 static void ind_printf(char *fmt, ...);
 
-void
-read_info(struct allinfo *ai)
+static void
+read_info(int fd, struct allinfo *ai)
 {
-	int fd;
 	size_t size = sizeof(*ai);
 	ssize_t bread;
-
-	/* TODO cleanup */
-	if ((fd = open("info.struct", O_RDONLY)) == -1) {
-		warn("open `info.struct' failed");
-		exitall(EX_UNAVAILABLE);
-	}
 
 	bread = read(fd, ai, size);
 	if (bread == -1 || bread != size) {
 		warn("read from `info.struct' failed");
 		exitall(EX_UNAVAILABLE);
 	}
-
-	close(fd);
 }
 
 void
-write_info(struct fsv fsv, struct proc cmd, struct proc log,
-           char *cmd_fullcmd, char *log_fullcmd)
+write_info(int fd, struct fsv fsv, struct proc cmd, struct proc log)
 {
-
-	/* strings currently ignored */
-
 	struct allinfo ai;
 	ai.fsv = fsv;
 	ai.procs[0] = cmd;
 	ai.procs[1] = log;
 
-	int fd;
 	size_t size = sizeof(ai);
 	ssize_t written;
-
-	if ((fd = creat("info.struct", 00666)) == -1) {
-		warn("create `info.struct' failed");
-		exitall(EX_CANTCREAT);
-	}
 
 	written = write(fd, &ai, size);
 	if (written == -1 || written != size) {
 		warn("write into `info.struct' failed");
 		exitall(EX_OSERR);
 	}
-
-	close(fd);
 }
 
 static void
@@ -82,13 +61,13 @@ ind_printf(char *fmt, ...)
 }
 
 void
-print_info(char *cmdname)
+print_info(int fd, char *cmdname)
 {
 	enum { BS = 64 };
 	char buf[BS];
 
 	struct allinfo ai;
-	read_info(&ai);
+	read_info(fd, &ai);
 
 	struct fsv fsv;
 	fsv = ai.fsv;
@@ -140,12 +119,12 @@ print_info(char *cmdname)
 }
 
 void
-print_info_pids(char *cmdname)
+print_info_pids(int fd, char *cmdname)
 {
 	struct allinfo ai;
 	long pids[3];
 
-	read_info(&ai);
+	read_info(fd, &ai);
 	pids[0] = (long)ai.fsv.pid;
 	pids[1] = (long)ai.procs[0].pid;
 	pids[2] = (long)ai.procs[1].pid;

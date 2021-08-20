@@ -29,6 +29,7 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <time.h>
+
 #include <sys/time.h>
 
 extern bool verbose;
@@ -69,10 +70,9 @@ struct proc {
  * info.c
  */
 
-void write_info(struct fsv, struct proc, struct proc,
-		char *, char *);
-void print_info(char *);
-void print_info_pids(char *);
+void write_info(int, struct fsv, struct proc, struct proc);
+void print_info(int, char *);
+void print_info_pids(int, char *);
 
 /*
  * proc.c

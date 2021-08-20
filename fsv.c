@@ -1,9 +1,11 @@
 //#define _GNU_SOURCE
 
+#include <sys/file.h> /* for flock(2) on linux */
 #include <sys/time.h>
 #include <sys/wait.h>
 
 #include <err.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <libgen.h>
 #include <stdlib.h>
@@ -40,16 +42,20 @@ static volatile sig_atomic_t termsig = 0;
 
 void onalrm(int), onchld(int), onterm(int);
 
+int  open_infostruct();
 void run_cmd(struct proc *, int[], bool, int, char *[], unsigned long);
 void run_log(struct proc *, int[], const char *);
 
 int
 main(int argc, char *argv[])
 {
+	bool do_fork = true;
 	bool logging = false;
+	unsigned long out_mask = 3;
 
-	char *cmdname = NULL;
-	char *log_fullcmd = NULL;
+	int fd_info;
+	char *cmdname;
+	char *log_fullcmd;
 	int logpipe[2];
 
 	struct fsv fsv_real;
@@ -90,23 +96,6 @@ main(int argc, char *argv[])
 
 	cmd_pid = &cmd->pid;
 	log_pid = &log->pid;
-
-#if 0
-	/* Fork to make sure we're not a process group leader. */
-	switch (fork()) {
-	case -1:
-		err(EX_OSERR, "cannot fork");
-		break;
-	case 0:
-		/* Child: continue. */
-		break;
-	default:
-		exit(0);
-	}
-
-	if ((pgrp = setsid()) == -1)
-		err(EX_OSERR, "cannot setsid(2)");
-#endif
 
 	if (pipe(logpipe) == -1)
 		err(EX_OSERR, "cannot make pipe");
@@ -158,9 +147,6 @@ main(int argc, char *argv[])
 	 * Process arguments.
 	 */
 
-	bool do_fork = true;
-	unsigned long out_mask = 3;
-
 	const char *getopt_str = "+Fhl:m:n:p:qr:s:S:t:vV";
 
 	struct option longopts[] = {
@@ -205,7 +191,8 @@ main(int argc, char *argv[])
 		case 'p':
 			cmdname = optarg;
 			cd_to_cmddir(cmdname, 0);
-			print_info_pids(cmdname);
+			fd_info = open_infostruct();
+			print_info_pids(fd_info, cmdname);
 			exit(0);
 			break;
 		case 'q':
@@ -223,7 +210,8 @@ main(int argc, char *argv[])
 		case 's':
 			cmdname = optarg;
 			cd_to_cmddir(cmdname, 0);
-			print_info(cmdname);
+			fd_info = open_infostruct();
+			print_info(fd_info, cmdname);
 			exit(0);
 			break;
 		case 'S':
@@ -290,7 +278,7 @@ main(int argc, char *argv[])
 	cd_to_cmddir(cmdname, 1);
 
 	/*
-	 * setsid() if necessary.
+	 * Fork and setsid() if necessary.
 	 */
 
 	if (do_fork) {
@@ -310,25 +298,32 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * Run log process, if applicable.
+	 * Open and flock `info.struct'.
+	 */
+
+	fd_info = open_infostruct();
+
+	if (flock(fd_info, LOCK_EX|LOCK_NB) == -1)
+		err(EX_UNAVAILABLE, "flock(2) failed (already running?)");
+
+	/*
+	 * Run log process (if applicable) and cmd.
+	 * From this point onward, only use exitall() to exit, because we have
+	 * child processes to cleanup.
 	 */
 
 	if (logging) {
 		run_log(log, logpipe, log_fullcmd);
 	}
 
-	/*
-	 * Run cmd.
-	 */
-
 	run_cmd(cmd, logpipe, logging, argc, argv, out_mask);
+
+	write_info(fd_info, *fsv, *cmd, *log);
 
 	/*
 	 * Main loop. Wait for signals, update cmd and log structs when received.
 	 * Not indented because it was getting cramped.
 	 */
-
-	write_info(*fsv, *cmd, *log, NULL, NULL);
 
 	for (;;) {
 
@@ -380,8 +375,6 @@ main(int argc, char *argv[])
 					proc->recent_restarts = 1;
 				}
 
-				write_info(*fsv, *cmd, *log, NULL, NULL);
-
 				if (proc->recent_restarts >= proc->recent_restarts_max) {
 					/* Max restarts reached. */
 					do_restart = false;
@@ -392,7 +385,7 @@ main(int argc, char *argv[])
 						debug("exiting\n");
 						fsv->pid = 0;
 						fsv->gaveup = true;
-						write_info(*fsv, *cmd, *log, NULL, NULL);
+						write_info(fd_info, *fsv, *cmd, *log);
 						exitall(0);
 					} else {
 						debug("setting alarm for %lu secs\n",
@@ -411,6 +404,7 @@ main(int argc, char *argv[])
 				}
 			}
 		}
+		write_info(fd_info, *fsv, *cmd, *log);
 	} else if (termsig) {
 		debug("\ncaught signal %s (%d)\n",
 		    strsignal(termsig), termsig);
@@ -418,6 +412,19 @@ main(int argc, char *argv[])
 	}
 
 	}
+}
+
+/*
+ * Only use before spawning any child processes, does not exit with exitall().
+ */
+int
+open_infostruct()
+{
+	int fd;
+	if ((fd = open("info.struct", O_CREAT|O_RDWR, 00666)) == -1)
+		err(EX_UNAVAILABLE, "open `info.struct' failed");
+
+	return fd;
 }
 
 void
