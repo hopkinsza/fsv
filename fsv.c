@@ -49,7 +49,7 @@ main(int argc, char *argv[])
 {
 	bool logging = false;
 
-	char *cmdname = NULL;	/* Extracted from argv or -c arg */
+	char *cmdname = NULL;
 	char *log_fullcmd = NULL;
 	int logpipe[2];
 
@@ -159,11 +159,13 @@ main(int argc, char *argv[])
 	 * Process arguments.
 	 */
 
+	bool do_fork = true;
 	unsigned long out_mask = 3;
 
-	const char *getopt_str = "+hl:m:n:p:qr:s:S:t:vV";
+	const char *getopt_str = "+Fhl:m:n:p:qr:s:S:t:vV";
 
 	struct option longopts[] = {
+		{ "no-fork",	no_argument,		NULL,	'F' },
 		{ "help",	no_argument,		NULL,	'h' },
 		{ "log",	required_argument,	NULL,	'l' },
 		{ "mask",	required_argument,	NULL,	'm' },
@@ -182,6 +184,9 @@ main(int argc, char *argv[])
 	int ch;
 	while ((ch = getopt_long(argc, argv, getopt_str, longopts, NULL)) != -1) {
 		switch(ch) {
+		case 'F':
+			do_fork = false;
+			break;
 		case 'h':
 			usage();
 			exit(0);
@@ -284,6 +289,26 @@ main(int argc, char *argv[])
 	 */
 
 	cd_to_cmddir(cmdname, 1);
+
+	/*
+	 * setsid() if necessary.
+	 */
+
+	if (do_fork) {
+		switch (fork()) {
+		case -1:
+			err(EX_OSERR, "fork(2) failed");
+			break;
+		case 0:
+			/* Child: continue. */
+			break;
+		default:
+			exit(0);
+		}
+
+		if (setsid() == -1)
+			err(EX_OSERR, "setsid(2) failed");
+	}
 
 	/*
 	 * Run log process, if applicable.
