@@ -41,7 +41,7 @@ static volatile sig_atomic_t termsig = 0;
 
 void onalrm(int), onchld(int), onterm(int);
 
-void run_cmd(struct proc *, int[], const char *, bool, int, char *[], unsigned long);
+void run_cmd(struct proc *, int[], bool, int, char *[], unsigned long);
 void run_log(struct proc *, int[], const char *);
 
 int
@@ -50,7 +50,6 @@ main(int argc, char *argv[])
 	bool logging = false;
 
 	char *cmdname = NULL;	/* Extracted from argv or -c arg */
-	char *cmd_fullcmd = NULL;
 	char *log_fullcmd = NULL;
 	int logpipe[2];
 
@@ -162,10 +161,9 @@ main(int argc, char *argv[])
 
 	unsigned long out_mask = 3;
 
-	const char *getopt_str = "+c:hl:m:n:p:qr:s:S:t:vV";
+	const char *getopt_str = "+hl:m:n:p:qr:s:S:t:vV";
 
 	struct option longopts[] = {
-		{ "cmd",	required_argument,	NULL,	'c' },
 		{ "help",	no_argument,		NULL,	'h' },
 		{ "log",	required_argument,	NULL,	'l' },
 		{ "mask",	required_argument,	NULL,	'm' },
@@ -184,9 +182,6 @@ main(int argc, char *argv[])
 	int ch;
 	while ((ch = getopt_long(argc, argv, getopt_str, longopts, NULL)) != -1) {
 		switch(ch) {
-		case 'c':
-			cmd_fullcmd = optarg;
-			break;
 		case 'h':
 			usage();
 			exit(0);
@@ -261,59 +256,21 @@ main(int argc, char *argv[])
 
 	/*
 	 * Verify that we have a command to run.
-	 * This can be either cmd_fullcmd from -c, or argv, but not both.
-	 * Then populate cmdname if not overridden by -n.
+	 * Populate cmdname if not overridden by -n.
 	 */
 
-	if (cmd_fullcmd == NULL && argc == 0) {
+	if (argc == 0) {
 		warnx("no cmd to execute");
 		usage();
 		exit(EX_USAGE);
 	}
-	if (cmd_fullcmd != NULL && argc > 0) {
-		if (argc > 0) {
-			warnx("was given `-c' in addition to command");
-			usage();
-			exit(EX_USAGE);
-		}
-	}
 
-	/* Note, the string is malloc()'ed but never freed. */
 	if (cmdname == NULL) {
-		if (cmd_fullcmd != NULL) {
-			/*
-			 * Generate cmdname from -c.
-			 *
-			 * Use portion of the string up to the first space,
-			 * unless it starts with a double quote '"'.
-			 * Then, use portion of the string between the quotes.
-			 *
-			 * This is not absolutely perfect (e.g. fails with
-			 * initial whitespace), but it works for the sane cases.
-			 */
+		/* This malloc() is never freed. */
+		cmdname = malloc(strlen(argv[0]) + 1);
 
-			cmdname = malloc(strlen(cmd_fullcmd) + 1);
-			strcpy(cmdname, cmd_fullcmd);
-
-			if (*cmdname != '"') {
-				if (*cmdname == ' ') {
-					errx(EX_DATAERR,
-					     "-c arg begins with a space, "
-					     "please change this to something "
-					     "more sane");
-				}
-				strtok(cmdname, " ");
-			} else {
-				cmdname++;
-				strtok(cmdname, "\"");
-			}
-			cmdname = basename(cmdname);
-		} else {
-			/* Not given via -c, use argv instead. */
-			cmdname = malloc(strlen(argv[0]) + 1);
-			strcpy(cmdname, argv[0]);
-			cmdname = basename(cmdname);
-		}
+		strcpy(cmdname, argv[0]);
+		cmdname = basename(cmdname);
 	}
 
 	debug("cmdname is %s\n", cmdname);
@@ -340,7 +297,7 @@ main(int argc, char *argv[])
 	 * Run cmd.
 	 */
 
-	run_cmd(cmd, logpipe, cmd_fullcmd, logging, argc, argv, out_mask);
+	run_cmd(cmd, logpipe, logging, argc, argv, out_mask);
 
 	/*
 	 * Main loop. Wait for signals, update cmd and log structs when received.
@@ -356,7 +313,7 @@ main(int argc, char *argv[])
 	if (gotalrm) {
 		/* Alarm received, timeout is done. */
 		gotalrm = 0;
-		run_cmd(cmd, logpipe, cmd_fullcmd, logging, argc, argv, out_mask);
+		run_cmd(cmd, logpipe, logging, argc, argv, out_mask);
 	} else if (gotchld) {
 		int status;
 		/* waitpid(2) flags */
@@ -422,8 +379,8 @@ main(int argc, char *argv[])
 
 				if (do_restart && i == 0) {
 					/* restart cmd */
-					run_cmd(cmd, logpipe, cmd_fullcmd,
-						logging, argc, argv, out_mask);
+					run_cmd(cmd, logpipe, logging,
+						argc, argv, out_mask);
 				} else if (do_restart && i == 1) {
 					/* restart log */
 					run_log(log, logpipe, log_fullcmd);
@@ -440,7 +397,7 @@ main(int argc, char *argv[])
 }
 
 void
-run_cmd(struct proc *cmd, int logpipe[], const char *cmd_fullcmd, bool logging,
+run_cmd(struct proc *cmd, int logpipe[], bool logging,
 	int argc, char *argv[], unsigned long out_mask)
 {
 	int fd0, fd1, fd2;
@@ -466,15 +423,9 @@ run_cmd(struct proc *cmd, int logpipe[], const char *cmd_fullcmd, bool logging,
 		}
 	}
 
-	if (argc > 0) {
-		cmd->pid = exec_argv(argv, fd0, fd1, fd2);
-	} else {
-		cmd->pid = exec_str(cmd_fullcmd, fd0, fd1, fd2);
-	}
+	cmd->pid = exec_argv(argv, fd0, fd1, fd2);
 
 	debug("started cmd process (%ld) at %ld\n", cmd->pid, (long)cmd->tv.tv_sec);
-
-
 }
 
 void
