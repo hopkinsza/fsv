@@ -43,6 +43,15 @@ write_info(int fd, struct fsv fsv, struct proc cmd, struct proc log)
 	size_t size = sizeof(ai);
 	ssize_t written;
 
+	/*
+	 * The file descriptor is long-lived for flock(2)ing purposes,
+	 * so just lseek(2) to the beginning for every new write.
+	 */
+	if (lseek(fd, 0, SEEK_SET) == -1) {
+		warn("lseek(2) failed");
+		exitall(EX_OSERR);
+	}
+
 	written = write(fd, &ai, size);
 	if (written == -1 || written != size) {
 		warn("write into `info.struct' failed");
