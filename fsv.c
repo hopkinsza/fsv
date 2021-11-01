@@ -79,7 +79,7 @@ main(int argc, char *argv[])
 		.pid = 0,
 		.total_restarts = 0,
 		.recent_secs = 3600, /* 1 hr */
-		.recent_restarts = 0,
+		.recent_restarts = 1,
 		.recent_restarts_max = 3,
 		.tv = { 0, 0 },
 		.status = 0
@@ -88,7 +88,7 @@ main(int argc, char *argv[])
 		.pid = 0,
 		.total_restarts = 0,
 		.recent_secs = 3600,
-		.recent_restarts = 0,
+		.recent_restarts = 1,
 		.recent_restarts_max = 3,
 		.tv = { 0, 0 },
 		.status = 0

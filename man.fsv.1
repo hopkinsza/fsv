@@ -53,12 +53,12 @@ and
 .Va log
 processes.
 .Va recent_restarts
-starts at 0 and will increment by 1 every time the process is restarted, unless
+starts at 1 and will increment every time the process is restarted, unless
 .Va recent_secs
 or more seconds have passed.
 In this case, the event is considered the start of a new string of crashes and
 .Va recent_restarts
-is set to 1.
+is set back to 1.
 .Pp
 A maximum number of recent restarts can be set with
 .Va recent_restarts_max .
