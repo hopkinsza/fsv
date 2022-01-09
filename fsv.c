@@ -342,8 +342,6 @@ main(int argc, char *argv[])
 		run_cmd(cmd, logpipe, logging, argc, argv, out_mask);
 	} else if (gotchld) {
 		int status;
-		/* waitpid(2) flags */
-		int wpf = WNOHANG|WCONTINUED|WUNTRACED;
 		pid_t wpid;
 
 		time_t now;
@@ -351,7 +349,7 @@ main(int argc, char *argv[])
 
 		gotchld = 0;
 
-		while ((wpid = waitpid(WAIT_ANY, &status, wpf)) > 0) {
+		while ((wpid = waitpid(WAIT_ANY, &status, WNOHANG)) > 0) {
 			if (wpid != log->pid && wpid != cmd->pid) {
 				/* should never happen */
 				debug("??? unknown child!\n");
