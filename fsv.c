@@ -55,7 +55,7 @@ void run_log(struct proc *, int[], const char *);
 int
 main(int argc, char *argv[])
 {
-	bool do_fork = true;
+	bool do_fork = false;
 	bool logging = false;
 	unsigned long out_mask = 3;
 
@@ -147,10 +147,10 @@ main(int argc, char *argv[])
 	 * Process arguments.
 	 */
 
-	const char *getopt_str = "+Fhl:m:n:p:qr:s:S:t:vV";
+	const char *getopt_str = "+bhl:m:n:p:qr:s:S:t:vV";
 
 	struct option longopts[] = {
-		{ "no-fork",	no_argument,		NULL,	'F' },
+		{ "background",	no_argument,		NULL,	'b' },
 		{ "help",	no_argument,		NULL,	'h' },
 		{ "log",	required_argument,	NULL,	'l' },
 		{ "mask",	required_argument,	NULL,	'm' },
@@ -169,8 +169,8 @@ main(int argc, char *argv[])
 	int ch;
 	while ((ch = getopt_long(argc, argv, getopt_str, longopts, NULL)) != -1) {
 		switch(ch) {
-		case 'F':
-			do_fork = false;
+		case 'b':
+			do_fork = true;
 			break;
 		case 'h':
 			usage();
@@ -283,7 +283,7 @@ main(int argc, char *argv[])
 	cd_to_cmddir(cmdname, 1);
 
 	/*
-	 * Fork and setsid() if necessary.
+	 * Daemonize if necessary.
 	 */
 
 	if (do_fork) {

@@ -10,7 +10,7 @@
 .\"
 .Sh SYNOPSIS
 .Nm
-.Op Fl FhqvV
+.Op Fl bhqvV
 .Op Fl m Ar mask
 .Op Fl n Ar name
 .Op Fl r Ar recent_restarts_max
@@ -126,19 +126,12 @@ process tries to log.
 The options are as follows:
 .Pp
 .Bl -tag -width Ds
-.It Fl F
-By default,
-.Nm
-will
+.It Fl b
+Daemonize by calling
 .Xr fork 2
 and
 .Xr setsid 2
-to detach from the session
-.Pq and controlling tty
-it's being run from.
-.Fl F
-will disable this.
-Useful for testing and debugging.
+to detach from the session.
 .It Fl h , Fl -help
 Print a brief help message.
 .It Fl l Ar log
