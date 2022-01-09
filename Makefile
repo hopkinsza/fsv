@@ -4,7 +4,7 @@ PROG = fsv
 SRCS = fsv.c info.c proc.c util.c
 OBJS = $(SRCS:.c=.o)
 
-CFLAGS = -Wall
+CFLAGS = -Wall -static
 
 
 .PHONY: all clean
