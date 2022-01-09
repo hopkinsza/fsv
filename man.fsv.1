@@ -19,7 +19,8 @@
 .Op Fl l Ar log
 .Ar cmd
 .Nm
-.Fl s Ar name
+.Aq Fl p | Fl s
+.Ar name
 .\"
 .\"
 .Sh DESCRIPTION
@@ -37,17 +38,38 @@ Optionally run another
 process to reliably log messages,
 even if either process is restarted.
 .It
-Maintain state information for all processes managed by
-.Nm .
+Maintain state information for both
+.Va cmd
+and
+.Va log .
 .El
+.\"
+.\"
+.Pp
+.Nm
+is designed to run daemons
+\(em long-running non-interactive processes \(em
+which may occasionally crash for various reasons.
+Typically, one wants the daemon to simply restart and go back about its
+business,
+but this can cause an infinite loop in the case of an enduring error.
+Repeated crashes could also indicate a malicious actor trying to attack the
+daemon, especially in the case of a network service.
+.Pp
+Thus,
+.Nm
+keeps track of how many times it has restarted each command recently
+and allows you to decide what it should do
+if it reaches too high of a value.
 .\"
 .\" recent_restarts
 .\"
 .Pp
+This value is called
+.Va recent_restarts ,
+and
 .Nm
-has a concept of
-.Va recent_restarts
-for the
+keeps track of it for both the
 .Va cmd
 and
 .Va log
@@ -59,8 +81,12 @@ or more seconds have passed.
 In this case, the event is considered the start of a new string of crashes and
 .Va recent_restarts
 is set back to 1.
+.Va recent_secs
+can instead be set to 0 if you never want
+.Va recent_restarts
+to reset.
 .Pp
-A maximum number of recent restarts can be set with
+The maximum number of allowed recent restarts can be set with
 .Va recent_restarts_max .
 In the event that this number is reached,
 .Nm
@@ -138,6 +164,14 @@ as the
 instead of letting
 .Nm
 choose it automatically.
+.It Fl p Ar name
+Print the PIDs of the
+.Va fsv ,
+.Va cmd ,
+and
+.Va log
+processes for the indicated
+.Va cmdname .
 .It Fl q
 Quiet.
 .It Fl r Ar recent_restarts_max
@@ -159,7 +193,7 @@ for
 .Va cmd .
 Prefix the number with
 .Ql l
-fo set for
+to set for
 .Va log
 instead.
 .It Fl t Ar timeout
