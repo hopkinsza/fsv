@@ -9,12 +9,10 @@ CFLAGS = -Wall
 
 .PHONY: all clean
 
-$(PROG):
+$(PROG): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $@
 
 all: $(PROG)
-
-$(PROG): $(OBJS)
 
 $(OBJS): extern.h
 
