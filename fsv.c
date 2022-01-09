@@ -219,12 +219,8 @@ main(int argc, char *argv[])
 				debug("setting recent_secs for log\n");
 				optarg++;
 				log->recent_secs = str_to_ul(optarg);
-				if (log->recent_secs == 0)
-					errx(EX_DATAERR, "-S arg should be >0");
 			} else {
 				cmd->recent_secs = str_to_ul(optarg);
-				if (cmd->recent_secs == 0)
-					errx(EX_DATAERR, "-S arg should be >0");
 			}
 			break;
 		case 't':
