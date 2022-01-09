@@ -68,7 +68,7 @@ main(int argc, char *argv[])
 	progname = argv[0];
 
 	*fsv = (struct fsv){
-		.pid = getpid(),
+		.pid = 0,
 		.since = { 0, 0 },
 		.timeout = 0,
 		.gaveup = false
@@ -301,6 +301,8 @@ main(int argc, char *argv[])
 		if (setsid() == -1)
 			err(EX_OSERR, "setsid(2) failed");
 	}
+	/* Set my pid now, because the fork may have changed it. */
+	fsv->pid = getpid();
 
 	/*
 	 * Open and flock `info.struct'.
