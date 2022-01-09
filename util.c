@@ -106,12 +106,18 @@ cd_to_cmddir(const char *cmddir, int create)
 }
 
 /*
- * Call termprocs(), then exit.
+ * Call termprocs(), update info struct, then exit.
  */
 void
 exitall(int status)
 {
 	termprocs();
+
+	procs[0].pid = 0;
+	procs[1].pid = 0;
+	write_info(fd_info, *fsv, procs[0], procs[1]);
+	debug("wrote info\n");
+
 	debug("sent SIGTERM to procs, exiting\n");
 	exit(status);
 }
@@ -122,13 +128,13 @@ exitall(int status)
 void
 termprocs()
 {
-	if (*cmd_pid != 0) {
-		kill(*cmd_pid, SIGTERM);
-		kill(*cmd_pid, SIGCONT);
+	if (procs[0].pid != 0) {
+		kill(procs[0].pid, SIGTERM);
+		kill(procs[0].pid, SIGCONT);
 	}
-	if (*log_pid != 0) {
-		kill(*log_pid, SIGTERM);
-		kill(*log_pid, SIGCONT);
+	if (procs[1].pid != 0) {
+		kill(procs[1].pid, SIGTERM);
+		kill(procs[1].pid, SIGCONT);
 	}
 }
 

@@ -37,8 +37,7 @@ extern const char *progname;
 /* Signal block mask: new and original */
 extern sigset_t bmask, obmask;
 
-extern pid_t *cmd_pid;
-extern pid_t *log_pid;
+extern int fd_info;
 
 struct fsv {
 	/* PID is 0 if not running, and since when */
@@ -65,6 +64,10 @@ struct proc {
 	/* If total_restarts > 0, most recent exit status as returned by wait(2) */
 	int status;
 };
+
+extern struct fsv  *fsv;
+/* procs[0] is cmd process, procs[1] is log process */
+extern struct proc procs[2];
 
 /*
  * info.c

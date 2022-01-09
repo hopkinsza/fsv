@@ -111,7 +111,10 @@ print_info(int fd, char *cmdname)
 
 		struct proc p = ai.procs[i];
 
-		ind_printf("%8s: %ld\n", "pid", (long)p.pid);
+		if (p.pid == 0)
+			ind_printf("%8s: %s\n", "pid", "n/a");
+		else
+			ind_printf("%8s: %ld\n", "pid", (long)p.pid);
 		ind_printf("%8s: %lu\n", "total_restarts", p.total_restarts);
 		ind_printf("%8s: %lu\n", "recent_secs", (unsigned long)p.recent_secs);
 		ind_printf("%8s: %lu\n", "recent_restarts", p.recent_restarts);

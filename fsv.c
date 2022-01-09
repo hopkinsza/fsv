@@ -29,12 +29,18 @@
  * -P new process group
  */
 
+struct fsv fsv_real;
+
+/* externs */
 bool verbose = true;
-const char *progname;
+const char *progname = NULL;
 sigset_t bmask, obmask;
 
-pid_t *cmd_pid;
-pid_t *log_pid;
+int fd_info = 0;
+
+struct fsv  *fsv = &fsv_real;
+struct proc procs[2];
+/* * */
 
 static volatile sig_atomic_t gotalrm = 0;
 static volatile sig_atomic_t gotchld = 0;
@@ -53,19 +59,14 @@ main(int argc, char *argv[])
 	bool logging = false;
 	unsigned long out_mask = 3;
 
-	int fd_info;
 	char *cmdname = NULL;
 	char *log_fullcmd = NULL;
 	int logpipe[2];
 
-	struct fsv fsv_real;
 	struct fsv *fsv = &fsv_real;
-	/* procs[0] is cmd process, procs[1] is log process */
-	struct proc procs[2];
+
 	struct proc *cmd = &procs[0];
 	struct proc *log = &procs[1];
-
-	progname = argv[0];
 
 	*fsv = (struct fsv){
 		.pid = 0,
@@ -94,11 +95,10 @@ main(int argc, char *argv[])
 		.status = 0
 	};
 
-	cmd_pid = &cmd->pid;
-	log_pid = &log->pid;
-
 	if (pipe(logpipe) == -1)
 		err(EX_OSERR, "cannot make pipe");
+
+	progname = argv[0];
 
 	/*
 	 * Block signals until ready to catch them.
@@ -392,7 +392,7 @@ main(int argc, char *argv[])
 						debug("exiting\n");
 						fsv->pid = 0;
 						fsv->gaveup = true;
-						write_info(fd_info, *fsv, *cmd, *log);
+						/* exitall() will call write_info */
 						exitall(0);
 					} else {
 						debug("setting alarm for %lu secs\n",
