@@ -54,8 +54,8 @@ main(int argc, char *argv[])
 	unsigned long out_mask = 3;
 
 	int fd_info;
-	char *cmdname;
-	char *log_fullcmd;
+	char *cmdname = NULL;
+	char *log_fullcmd = NULL;
 	int logpipe[2];
 
 	struct fsv fsv_real;
@@ -254,11 +254,20 @@ main(int argc, char *argv[])
 	}
 
 	if (cmdname == NULL) {
-		/* This malloc() is never freed. */
-		cmdname = malloc(strlen(argv[0]) + 1);
+		/* basename(3) may modify its argument, so use a copy. */
+		char *tmp;
 
-		strcpy(cmdname, argv[0]);
-		cmdname = basename(cmdname);
+		tmp = malloc(strlen(argv[0]) + 1);
+		strcpy(tmp, argv[0]);
+
+		/*
+		 * This malloc() is never freed.
+		 * Have room for an extra character because basename(3) returns
+		 * `.' if given empty string.
+		 */
+		cmdname = malloc(strlen(tmp) + 2);
+
+		strcpy(cmdname, basename(tmp));
 	}
 
 	debug("cmdname is %s\n", cmdname);
