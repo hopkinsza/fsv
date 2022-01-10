@@ -148,7 +148,7 @@ main(int argc, char *argv[])
 	 * Process arguments.
 	 */
 
-	const char *getopt_str = "+bhl:m:n:p:qr:s:S:t:vV";
+	const char *getopt_str = "+bhl:m:n:p:qR:r:s:t:vV";
 
 	struct option longopts[] = {
 		{ "background",	no_argument,		NULL,	'b' },
@@ -158,9 +158,9 @@ main(int argc, char *argv[])
 		{ "name",	required_argument,	NULL,	'n' },
 		{ "pids",	required_argument,	NULL,	'p' },
 		{ "quiet",	no_argument,		NULL,	'q' },
+		{ "recent-secs",required_argument,	NULL,	'R' },
 		{ "restarts-max",required_argument,	NULL,	'r' },
 		{ "status",	required_argument,	NULL,	's' },
-		{ "recent-secs",required_argument,	NULL,	'S' },
 		{ "timeout",	required_argument,	NULL,	't' },
 		{ "verbose",	no_argument,		NULL,	'v' },
 		{ "version",	no_argument,		NULL,	'V' },

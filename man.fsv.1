@@ -13,8 +13,8 @@
 .Op Fl bhqvV
 .Op Fl m Ar mask
 .Op Fl n Ar name
+.Op Fl R Ar recent_secs
 .Op Fl r Ar recent_restarts_max
-.Op Fl S Ar recent_secs
 .Op Fl t Ar timeout
 .Op Fl l Ar log
 .Ar cmd
@@ -167,6 +167,16 @@ processes for the indicated
 .Va cmdname .
 .It Fl q , Fl -quiet
 Quiet.
+.It Fl R , Fl -recent-secs Ar recent_secs
+Set
+.Va recent_secs
+for
+.Va cmd .
+Prefix the number with
+.Ql l
+to set for
+.Va log
+instead.
 .It Fl r , Fl -restarts-max Ar recent_restarts_max
 Set
 .Va recent_restarts_max
@@ -179,16 +189,6 @@ to set for
 instead.
 .It Fl s , Fl -status Ar name
 Status.
-.It Fl S , Fl -recent-secs Ar recent_secs
-Set
-.Va recent_secs
-for
-.Va cmd .
-Prefix the number with
-.Ql l
-to set for
-.Va log
-instead.
 .It Fl t , Fl -timeout Ar timeout
 Set
 .Va timeout
