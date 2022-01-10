@@ -37,6 +37,7 @@ extern const char *progname;
 /* Signal block mask: new and original */
 extern sigset_t bmask, obmask;
 
+extern int fd_devnull;
 extern int fd_info;
 
 struct fsv {

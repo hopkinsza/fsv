@@ -36,6 +36,7 @@ bool verbose = true;
 const char *progname = NULL;
 sigset_t bmask, obmask;
 
+int fd_devnull = 0;
 int fd_info = 0;
 
 struct fsv  *fsv = &fsv_real;
@@ -303,6 +304,13 @@ main(int argc, char *argv[])
 	}
 	/* Set my pid now, because the fork may have changed it. */
 	fsv->pid = getpid();
+
+	/*
+	 * Open /dev/null.
+	 */
+
+	if ((fd_devnull = open("/dev/null", O_RDWR|O_CLOEXEC, 00666)) == -1)
+		err(EX_UNAVAILABLE, "open `/dev/null' failed");
 
 	/*
 	 * Open and flock `info.struct'.
