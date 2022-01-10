@@ -426,7 +426,7 @@ int
 open_infostruct()
 {
 	int fd;
-	if ((fd = open("info.struct", O_CREAT|O_RDWR, 00666)) == -1)
+	if ((fd = open("info.struct", O_CREAT|O_RDWR|O_CLOEXEC, 00666)) == -1)
 		err(EX_UNAVAILABLE, "open `info.struct' failed");
 
 	return fd;
