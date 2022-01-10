@@ -27,7 +27,7 @@ static void mydup2(int oldfd, int newfd) {
 	/* just to reduce repeated code */
 
 	if (oldfd == -1)
-		return;
+		oldfd = fd_devnull;
 
 	if (dup2(oldfd, newfd) == -1) {
 		warn("dup2(2) failed");
