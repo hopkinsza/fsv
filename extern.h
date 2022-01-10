@@ -54,14 +54,14 @@ struct fsv {
 
 struct proc {
 	pid_t pid;
-	unsigned long total_restarts;
+	unsigned long total_execs;
 
 	unsigned long recent_secs;
 	unsigned long recent_restarts;
 	unsigned long recent_restarts_max;
 	/* Time of the most recent restart */
 	struct timeval tv;
-	/* If total_restarts > 0, most recent exit status as returned by wait(2) */
+	/* If total_execs > 0, most recent exit status as returned by wait(2) */
 	int status;
 };
 

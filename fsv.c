@@ -78,7 +78,7 @@ main(int argc, char *argv[])
 
 	*cmd = (struct proc){
 		.pid = 0,
-		.total_restarts = 0,
+		.total_execs = 0,
 		.recent_secs = 3600, /* 1 hr */
 		.recent_restarts = 1,
 		.recent_restarts_max = 3,
@@ -87,7 +87,7 @@ main(int argc, char *argv[])
 	};
 	*log = (struct proc){
 		.pid = 0,
-		.total_restarts = 0,
+		.total_execs = 0,
 		.recent_secs = 3600,
 		.recent_restarts = 1,
 		.recent_restarts_max = 3,
@@ -438,7 +438,7 @@ run_cmd(struct proc *cmd, int logpipe[], bool logging,
 {
 	int fd0, fd1, fd2;
 
-	cmd->total_restarts++;
+	cmd->total_execs++;
 	gettimeofday(&cmd->tv, NULL);
 
 	fd0 = -1;
@@ -467,7 +467,7 @@ run_cmd(struct proc *cmd, int logpipe[], bool logging,
 void
 run_log(struct proc *log, int logpipe[], const char *log_fullcmd)
 {
-	log->total_restarts++;
+	log->total_execs++;
 	gettimeofday(&log->tv, NULL);
 	log->pid = exec_str(log_fullcmd, logpipe[0], -1, -1);
 
