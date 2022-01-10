@@ -380,10 +380,10 @@ main(int argc, char *argv[])
 					proc->recent_restarts = 1;
 				}
 
-				if (proc->recent_restarts >= proc->recent_restarts_max) {
-					/* Max restarts reached. */
+				if (proc->recent_restarts > proc->recent_restarts_max) {
+					/* Max restarts exceeded. */
 					do_restart = false;
-					debug("recent_restarts_max (%lu) reached for %s, ",
+					debug("recent_restarts_max (%lu) exceeded for %s, ",
 					    proc->recent_restarts_max, procname);
 
 					if (i == 1 || fsv->timeout == 0) {
