@@ -126,7 +126,7 @@ process tries to log.
 The options are as follows:
 .Pp
 .Bl -tag -width Ds
-.It Fl b
+.It Fl b , Fl -background
 Daemonize by calling
 .Xr fork 2
 and
@@ -134,12 +134,12 @@ and
 to detach from the session.
 .It Fl h , Fl -help
 Print a brief help message.
-.It Fl l Ar log
+.It Fl l , Fl -log Ar log
 Program to pipe
 the output of
 .Va cmd
 into.
-.It Fl m Ar mask
+.It Fl m , Fl -mask Ar mask
 Used to specify what output to redirect from
 .Va cmd
 to
@@ -149,7 +149,7 @@ to
 or
 .Dv both Pq 3 .
 Default is 3.
-.It Fl n Ar name
+.It Fl n , Fl -name Ar name
 Use
 .Ar name
 as the
@@ -157,7 +157,7 @@ as the
 instead of letting
 .Nm
 choose it automatically.
-.It Fl p Ar name
+.It Fl p , Fl -pids Ar name
 Print the PIDs of the
 .Va fsv ,
 .Va cmd ,
@@ -165,9 +165,9 @@ and
 .Va log
 processes for the indicated
 .Va cmdname .
-.It Fl q
+.It Fl q , Fl -quiet
 Quiet.
-.It Fl r Ar recent_restarts_max
+.It Fl r , Fl -restarts-max Ar recent_restarts_max
 Set
 .Va recent_restarts_max
 for
@@ -177,9 +177,9 @@ Prefix the number with
 to set for
 .Va log
 instead.
-.It Fl s Ar name
+.It Fl s , Fl -status Ar name
 Status.
-.It Fl S Ar recent_secs
+.It Fl S , Fl -recent-secs Ar recent_secs
 Set
 .Va recent_secs
 for
@@ -189,12 +189,12 @@ Prefix the number with
 to set for
 .Va log
 instead.
-.It Fl t Ar timeout
+.It Fl t , Fl -timeout Ar timeout
 Set
 .Va timeout
 for
 .Va cmd .
-.It Fl v
+.It Fl v , Fl -verbose
 Verbose.
 .It Fl V , Fl -version
 Print version and exit.
