@@ -1,5 +1,13 @@
 /*
  * proc.c
+ *   Subroutines to fork & exec the log & cmd processes.
+ *   Fork, reset signal handling, set up STD{IN,OUT,ERR}, and exec.
+ *   Call exitall() if there's an error.
+ *   Return PID of child to the parent.
+ *
+ *   `in, out, err' are the file descriptors to dup into that respective slot
+ *   for the child, which will inherit them.
+ *   Value of -1 means use the /dev/null file descriptor.
  */
 
 #include <sys/wait.h>
@@ -15,17 +23,6 @@
 
 #include "extern.h"
 
-/*
- * Subroutines to fork & exec the log & cmd processes.
- * Fork, reset signal handling, set up STD{IN,OUT,ERR}, and exec.
- * Send SIGTERM to the process group if there's an error.
- * Return PID of child to the parent.
- *
- * `in, out, err' are the file descriptors to dup into that respective
- * slot, since child inherits FDs.
- * Value of -1 means do nothing.
- * TODO: should -1 mean do nothing, or close it?
- */
 static void mydup2(int oldfd, int newfd) {
 	/* just to reduce repeated code */
 

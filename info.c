@@ -1,5 +1,6 @@
 /*
  * info.c
+ *   Functions related to the `info.struct' file.
  */
 
 #include <err.h>
