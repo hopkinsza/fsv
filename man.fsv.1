@@ -282,3 +282,13 @@ instead.
 .\"
 .\"
 .Sh BUGS
+.Va recent_restarts
+will always display as at least 1 in the
+.Fl s , Fl -status
+output.
+This is because
+.Nm
+only wakes up to recalculate and update this value when the process restarts;
+thus, it will never be zero.
+This may be fixed in a future version of
+.Nm .
